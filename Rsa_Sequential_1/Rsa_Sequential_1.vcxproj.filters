@@ -24,6 +24,9 @@
     <ClInclude Include="rsa1.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="timeutil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
