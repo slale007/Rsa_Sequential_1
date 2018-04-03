@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define PQ_PRIME_SIZE_BITS 8192
+#define PQ_PRIME_SIZE_BITS 1024
 
 gmp_randstate_t state;
 
@@ -39,7 +39,6 @@ int rsac_keygen_internal(mpz_t n, mpz_t e, mpz_t d, mpz_t p, mpz_t q)
 
 	int rounds;
 	for (rounds = 0; mpz_cmp_ui(d, 0) == 0 && rounds < 100; rounds++) {
-		cout << "tttt" << endl;
 		rsac_init_randstate();
 		rsac_random_prime(PQ_PRIME_SIZE_BITS, p);
 		rsac_random_prime(PQ_PRIME_SIZE_BITS, q);

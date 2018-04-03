@@ -41,5 +41,8 @@
     <ClCompile Include="rsa1_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rsa2_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
