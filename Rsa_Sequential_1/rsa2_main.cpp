@@ -50,7 +50,7 @@ void generate_keys(privateKey* ku, publicKey* kp)
 	/* Insetead of selecting e st. gcd(phi, e) = 1; 1 < e < phi, lets choose e
 	* first then pick p,q st. gcd(e, p-1) = gcd(e, q-1) = 1 */
 	// We'll set e globally.  I've seen suggestions to use primes like 3, 17 or 
-	// 65537, as they make coming calculations faster.  Lets use 3.
+	// 65537, as they make coming calculations faster.  Lets use 65537.
 	mpz_set_ui(ku->e, 65537);
 
 	/* Select p and q */
@@ -219,7 +219,7 @@ int decrypt(char* message, char* cipher, int length, privateKey ku)
 	return msg_idx;
 }
 
-int main()
+int maind()
 {
 	int i;
 	mpz_t M;  mpz_init(M);

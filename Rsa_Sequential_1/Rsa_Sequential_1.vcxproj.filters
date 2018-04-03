@@ -44,5 +44,11 @@
     <ClCompile Include="rsa2_main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="rsa3_main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="timeutil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

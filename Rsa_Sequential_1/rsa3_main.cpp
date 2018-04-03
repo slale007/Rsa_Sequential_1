@@ -1,7 +1,10 @@
+/////////////////////////////////////
+// My implementation of Montgomery //
+/////////////////////////////////////
+
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <ctime>
 #include <string.h>
 
@@ -11,7 +14,7 @@
 
 using namespace std;
 
-int test_rsac_inverse_modulo() {
+int test_rsac_inverse_modulo3() {
 	std::clock_t start = std::clock();
 	int fail = 0;
 	mpz_t a, b, c;
@@ -35,7 +38,7 @@ int test_rsac_inverse_modulo() {
 	return fail;
 }
 
-int test_rsac_random_prime() {
+int test_rsac_random_prime3() {
 	std::clock_t start = std::clock();
 	int fail = 0;
 	mpz_t a;
@@ -66,40 +69,7 @@ int test_rsac_random_prime() {
 	return fail;
 }
 
-int check_keygen_result(mpz_t e, mpz_t d, mpz_t p, mpz_t q) {
-	int fail = 0;
-	mpz_t t1, t2, phi;
-	mpz_inits(t1, t2, phi, NULL);
-
-	mpz_sub_ui(t1, p, 1);
-	mpz_sub_ui(t2, q, 1);
-	mpz_mul(phi, t1, t2);
-
-	// Check that ed = 1 (mod phi)
-	mpz_mul(t1, e, d);
-	mpz_tdiv_r(t2, t1, phi);
-
-	if (mpz_cmp_si(t2, 1)) {
-		printf("FAIL: rsac_keygen_internal output should satisfy de = 1 (mod phi) but de %% phi was ");
-		mpz_out_str(NULL, 10, t2);
-		printf("\n d:   ");
-		mpz_out_str(NULL, 10, d);
-		printf("\n e:   ");
-		mpz_out_str(NULL, 10, e);
-		printf("\n phi: ");
-		mpz_out_str(NULL, 10, phi);
-		printf("\n p:   ");
-		mpz_out_str(NULL, 10, p);
-		printf("\n q:   ");
-		mpz_out_str(NULL, 10, q);
-		printf("\n");
-		fail++;
-	}
-	mpz_clears(t1, t2, phi, NULL);
-	return fail;
-}
-
-int test_rsac_keygen_internal() {
+int test_rsac_keygen_internal3() {
 	std::clock_t start = std::clock();
 	mpz_t n, e, d, p, q;
 	mpz_inits(n, e, d, p, q, NULL);
@@ -107,10 +77,6 @@ int test_rsac_keygen_internal() {
 
 	for (int i = 0; i < 1; i++) {
 		rsac_keygen_internal(n, e, d, p, q);
-		if (check_keygen_result(e, d, p, q) != 0) {
-			fail++;
-			break;
-		}
 	}
 
 	mpz_clears(n, e, d, p, q, NULL);
@@ -123,7 +89,7 @@ int test_rsac_keygen_internal() {
 	return fail;
 }
 
-int test_rsac_keygen() {
+int test_rsac_keygen3() {
 	std::clock_t start = std::clock();
 	int fail = 0;
 	public_key* pub = (public_key*)calloc(sizeof(public_key), 1);
@@ -170,7 +136,7 @@ int test_rsac_keygen() {
 	return fail;
 }
 
-int test_rsac_encrypt_decrypt_inverses() {
+int test_rsac_encrypt_decrypt_inverses3() {
 	std::clock_t start = std::clock();
 	int fail = 0;
 	public_key* pub = (public_key*)calloc(sizeof(public_key), 1);
@@ -222,15 +188,15 @@ int test_rsac_encrypt_decrypt_inverses() {
 	return fail;
 }
 
-int test_rsac_string_encrypt_decrypt() {
+int test_rsac_string_encrypt_decrypt3() {
 	std::clock_t start = std::clock();
 	char m[] = "stop slacking off.";
 	size_t c_len, m_len = strlen(m), result_len;
 	char **c = (char**)calloc(sizeof(char *), 1);
 	char **m_result = (char**)calloc(sizeof(char *), 1);
 	int fail = 0;
-	public_key* pub = (public_key*) calloc(sizeof(public_key), 1);
-	private_key* priv = (private_key*) calloc(sizeof(private_key), 1);
+	public_key* pub = (public_key*)calloc(sizeof(public_key), 1);
+	private_key* priv = (private_key*)calloc(sizeof(private_key), 1);
 
 	if (pub == NULL || priv == NULL) {
 		printf("FAIL: rsac_string_encrypt_decrypt could not allocate public or private key struct\n");
@@ -266,21 +232,93 @@ int test_rsac_string_encrypt_decrypt() {
 	return fail;
 }
 
-int main() {
+void MontgomeryModularMultiplication(mpz_t x, mpz_t y, mpz_t modul, unsigned long long int mprim)
+{
+	mpz_t temp1;
+	mpz_t temp2;
+	mpz_t uim;
+	mpz_t xiy;
+	mpz_t A;
+	mpz_inits(temp1,temp2, A, uim, xiy, NULL);
+
+	for (int i = 0; i < modul->_mp_size; i++) {
+		unsigned long long int xi;
+		if (i < x->_mp_size) 
+		{
+			xi = x->_mp_d[i];
+		}
+		else 
+		{
+			xi = 0;
+		}
+
+		unsigned long long int ui = ((A->_mp_d[0] + xi * y->_mp_d[0]) * mprim) % 64;
+
+		// little data type conversion
+		mpz_t XI;
+		mpz_init_set_ui (XI, xi);
+
+		// xiy = xi * y
+		mpz_mul(xiy, y, XI);
+
+		// little data type conversion
+		mpz_t UI;
+		mpz_init_set_ui(UI, ui);
+
+		// uim = ui * modul
+		mpz_mul(uim, UI, modul);
+
+		// temp1 = xiy +uim
+		mpz_add(temp1, xiy, uim);
+
+		// temp2 = A + temp1
+		mpz_add(temp2, A, temp1);
+
+		// A = temp2 /  base using right shift once
+		// This can be improved to be O(1)
+		for (int j = 1; j < temp2->_mp_size;j++) {
+			A->_mp_d[j - 1] = temp2->_mp_d[j];
+		}
+
+		A->_mp_size = temp2->_mp_size - 1;
+	}
+
+	if (mpz_cmp(A, modul) >= 0)
+	{
+		mpz_sub(temp1, A, modul);
+		mpz_add(A, 0, temp1);
+	}
+}
+
+void MontgomeryModularEponentiation(mpz_t x, mpz_t exponent, mpz_t modul)
+{
+	mpz_t R;
+	mpz_inits(R, NULL);
+	// This can be performance improved
+	mpz_mul_2exp(R, R, sizeof(unsigned long long int) * modul->_mp_size);
+
+	mpz_t mprim;
+	mpz_inits(mprim, NULL);
+
+
+
+
+}
+
+int main323() {
 	int failures = 0;
 
 	printf(" CHAR_BIT je: %d\n", CHAR_BIT);
 	printf("Velicina char je: %d\n", sizeof(char));
 	printf("Velicina mp_limb_t je: %d\n", sizeof(mp_limb_t));
 	printf("Velicina unsigned long int je: %d\n", sizeof(unsigned long int));
-	printf("Velicina unsigned long long int je: %d\n", sizeof(unsigned long long int));
 
-	failures += test_rsac_inverse_modulo();
-	failures += test_rsac_random_prime();
-//	failures += test_rsac_keygen_internal();
-	failures += test_rsac_keygen();
-	failures += test_rsac_encrypt_decrypt_inverses();
-	failures += test_rsac_string_encrypt_decrypt();
+	failures += test_rsac_inverse_modulo3();
+	failures += test_rsac_random_prime3();
+	//	failures += test_rsac_keygen_internal3();
+	failures += test_rsac_keygen3();
+	failures += test_rsac_encrypt_decrypt_inverses3();
+	failures += test_rsac_string_encrypt_decrypt3();
 
 	printf("%d failures\n", failures);
 	return failures > 0;
