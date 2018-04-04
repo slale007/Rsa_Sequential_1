@@ -266,7 +266,7 @@ int test_rsac_string_encrypt_decrypt() {
 	return fail;
 }
 
-int main() {
+int main2() {
 	int failures = 0;
 
 	printf(" CHAR_BIT je: %d\n", CHAR_BIT);
