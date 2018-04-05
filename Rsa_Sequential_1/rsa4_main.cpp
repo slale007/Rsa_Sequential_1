@@ -1,6 +1,5 @@
 /////////////////////////////////////
 // My implementation of Montgomery //
-// Failed                          //
 /////////////////////////////////////
 
 #include <iostream>
@@ -12,6 +11,7 @@
 #include "stdafx.h"
 #include "rsa1.h"
 #include "timeutil.h"
+#include "customFunctions.h"
 #define BASE 64
 
 using namespace std;
@@ -58,15 +58,7 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 
 	// mpz_mod(tmp2, tmp1, R);
 	mpz_tdiv_q_2exp(tmp2, tmp1, index);
-
-	globalTime2 += clock() - start;
-	start = clock();
-
 	mpz_mul_2exp(tmp2, tmp2, index);
-
-	globalTime3 += clock() - start;
-	start = clock();
-
 	mpz_sub(tmp2, tmp1, tmp2);
 
 	globalTime4 += clock() - start;
@@ -186,9 +178,6 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 
 	indexRR = 64 * RR->_mp_size - 64 + indexRR;
 
-	clock_t start = clock();
-
-
 	for (int i = index; i >= 0; i--) {
 		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR, indexRR);
 		if (exponent->_mp_d[i / 64] & (((unsigned long long int)1) << (i % 64))) {
@@ -196,7 +185,6 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 		}
 	}
 
-	cout << "Inner Time 0 : " << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 	cout << "Global time 0: " << globalTime0 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 	cout << "Global time 1: " << globalTime1 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 	cout << "Global time 2: " << globalTime2 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
@@ -257,7 +245,7 @@ void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, si
 }
 
 int test_rsac_string_encrypt_decrypt4() {
-	char m[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
+	char m[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
 	size_t c_len, m_len = strlen(m), result_len;
 	char **c = (char**)calloc(sizeof(char *), 1);
 	char **m_result = (char**)calloc(sizeof(char *), 1);

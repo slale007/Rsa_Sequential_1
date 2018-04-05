@@ -144,12 +144,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="customFunctions.h" />
     <ClInclude Include="rsa1.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="timeutil.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="customFunctions.cpp" />
     <ClCompile Include="rsa1.cpp" />
     <ClCompile Include="rsa1_main.cpp" />
     <ClCompile Include="rsa2_main.cpp" />
