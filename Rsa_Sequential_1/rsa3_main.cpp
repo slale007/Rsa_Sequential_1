@@ -15,7 +15,6 @@
 
 using namespace std;
 
-
 void MontgomeryModularMultiplication(mpz_t res, mpz_t x, mpz_t yyy, mpz_t modul, unsigned long long int mprim)
 {
 	mpz_t temp1;
@@ -161,7 +160,6 @@ void MontgomeryModularMultiplicationBinary(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_
 		mpz_add(res, tempNull, temp1);
 	}
 }
-
 
 void MontgomeryModularEponentiation(mpz_t A, mpz_t x, mpz_t exponent, mpz_t modul)
 {
@@ -316,6 +314,7 @@ void MontgomeryModularEponentiationBinary(mpz_t A, mpz_t x, mpz_t exponent, mpz_
 	MontgomeryModularMultiplicationBinary(A, AAA, one, modul, mprim->_mp_d[0]);
 }
 
+
 void rsac_encryptV2(public_key *pub, const char *message, size_t m_len, char **cryptedMessage, size_t *c_len)
 {
 	mpz_t m_int, c_int, c_int2, c_int3;
@@ -324,9 +323,8 @@ void rsac_encryptV2(public_key *pub, const char *message, size_t m_len, char **c
 		m_int, m_len, /* MS word first */ 1, /* bytes per word */ 1,
 		/* big-endian */ 1, /* skip bits */ 0, message);
 
-	rsac_encrypt_internal(pub, m_int, c_int);
-	MontgomeryModularEponentiationBinary(/*cripted*/c_int2,/* message */ m_int, /*exponent*/ pub->e, /*modul*/ pub->n);
-	MontgomeryModularEponentiation(/*cripted*/c_int3,/* message */ m_int, /*exponent*/ pub->e, /*modul*/ pub->n);
+	// rsac_encrypt_internal(pub, m_int, c_int);
+	MontgomeryModularEponentiationBinary(/*cripted*/c_int,/* message */ m_int, /*exponent*/ pub->e, /*modul*/ pub->n);
 
 	*cryptedMessage = (char*)mpz_export(NULL, c_len, 1, 1, 1, 0, c_int);
 	// mpz_clears(m_int, c_int, NULL);
@@ -379,7 +377,7 @@ int test_rsac_string_encrypt_decrypt3() {
 
 
 
-int main() {
+int mainsss() {
 	int failures = 0;
 
 	printf(" CHAR_BIT je: %d\n", CHAR_BIT);

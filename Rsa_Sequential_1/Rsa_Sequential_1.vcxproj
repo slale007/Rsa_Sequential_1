@@ -154,6 +154,7 @@
     <ClCompile Include="rsa1_main.cpp" />
     <ClCompile Include="rsa2_main.cpp" />
     <ClCompile Include="rsa3_main.cpp" />
+    <ClCompile Include="rsa4_main.cpp" />
     <ClCompile Include="Rsa_Sequential_1.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
