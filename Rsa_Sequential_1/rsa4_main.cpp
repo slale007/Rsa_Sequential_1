@@ -34,12 +34,6 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_t slowU;
 	mpz_init(slowU);
 
-	mpz_mul(t, xxx, yyy);
-	mpz_mul(tmp1, t, mprim);
-	mpz_mod(tmp2, tmp1, R);
-	mpz_mul(tmp3, tmp2, modul);
-	mpz_add(tmp4, t, tmp3);
-
 
 	int index = 0;
 	for (int i = 63; i >= 0; i--) {
@@ -51,12 +45,20 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 
 	index = 64 * R->_mp_size - 64 + index;
 
+	mpz_mul(t, xxx, yyy);
+	mpz_mul(tmp1, t, mprim);
+	mpz_mod(tmp2, tmp1, R);
+	mpz_mul(tmp3, tmp2, modul);
+	mpz_add(tmp4, t, tmp3);
+
+
+
 	mpz_tdiv_q_2exp(u, tmp4, index);
 
-	mpz_div(slowU, tmp4, R);
+	/*mpz_div(slowU, tmp4, R);
 	if (mpz_cmp(u, slowU) != 0) {
 		cout<<endl << "Fatal error" << endl;
-	}
+	}*/
 
 	// all above is good
 
@@ -117,19 +119,19 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_init(min1);
 	mpz_sub(min1, tempNull, onne);
 	mpz_powm(mprim, modul, min1, RR);
-    mpz_invert(mprim2, modul, RR);
+    /* mpz_invert(mprim2, modul, RR);
 
 	if (mpz_cmp(mprim, mprim2) != 0) {
 		cout << "Fatal error0" << endl;
-	}
+	}*/
 
 	mpz_sub(mprim, RR, mprim);
-	mpz_sub(mprim2, tempNull, mprim2);
+	/*mpz_sub(mprim2, tempNull, mprim2);
 	mpz_mod(mprim2, mprim2, RR);
 
 	if (mpz_cmp(mprim, mprim2) != 0) {
-		cout << endl<<"Fatal error01" << endl;
-	}
+	    cout << endl<<"Fatal error01" << endl;
+	}*/
 
 	// all above stuff is checked
 
@@ -145,7 +147,7 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	 // MontgomeryModularMultiplicationV4(xline, xxx, RsquareMod, modul, mprim, RR);
 
 	if (mpz_cmp(xline, xline2) != 0) {
-		cout << endl << "Fatal error02" << endl;
+		// cout << endl << "Fatal error02" << endl;
 	}
 
 	mpz_mod(res, RR, modul);
@@ -159,24 +161,25 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	}
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
-
+	std::clock_t start = std::clock();
 	for (int i = index; i >= 0; i--) {
-		mpz_t AA;
+		/*mpz_t AA;
 		mpz_t AAAA;
 		mpz_init(AA);
 		mpz_init(AAAA);
 		mpz_add(AA, tempNull, res);
-		mpz_add(AAAA, tempNull, res);
+		mpz_add(AAAA, tempNull, res);*/
 
 
 
-		MontgomeryModularMultiplicationV4(res, AA, AAAA, modul, mprim, RR);
+		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR);
 		if (exponent->_mp_d[i / 64] & (((unsigned long long int)1) << (i % 64))) {
-			mpz_add(AA, tempNull, res);
-			MontgomeryModularMultiplicationV4(res, AA, xline, modul, mprim, RR);
+			// mpz_add(AA, tempNull, res);
+			MontgomeryModularMultiplicationV4(res, res, xline, modul, mprim, RR);
 		}
-		mpz_clears(AA, AAAA, NULL);
+		// mpz_clears(AA, AAAA, NULL);
 	}
+	printTime(start);
 
 	// all above stuff is checked
 	mpz_t one;
@@ -189,8 +192,6 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	MontgomeryModularMultiplicationV4(res, AAA, one, modul, mprim, RR);
 }
 
-
-
 void rsac_encryptV4(public_key *pub, const char *message, size_t m_len, char **cryptedMessage, size_t *c_len)
 {
 	mpz_t m_int, c_int, c_int2, c_int3;
@@ -199,15 +200,35 @@ void rsac_encryptV4(public_key *pub, const char *message, size_t m_len, char **c
 		m_int, m_len, /* MS word first */ 1, /* bytes per word */ 1,
 		/* big-endian */ 1, /* skip bits */ 0, message);
 
-	// rsac_encrypt_internal(pub, m_int, c_int);
+	std::clock_t start = std::clock();
+	rsac_encrypt_internal(pub, m_int, c_int2);
+	printTime(start);
+	start = std::clock();
 	MontgomeryModularEponentiationV4(/*cripted*/c_int,/* message */ m_int, /*exponent*/ pub->e, /*modul*/ pub->n);
+	printTime(start);
 
 	*cryptedMessage = (char*)mpz_export(NULL, c_len, 1, 1, 1, 0, c_int);
 	// mpz_clears(m_int, c_int, NULL);
 }
 
-int test_rsac_string_encrypt_decrypt4() {
+void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, size_t *m_len)
+{
+	mpz_t m_int, c_int, c_int3;
+	mpz_inits(m_int, c_int, c_int3, NULL);
+	mpz_import(
+		c_int, c_len, /* MS word first */ 1, /* bytes per word */ 1,
+		/* big-endian */ 1, /* skip bits */ 0, c);
 	std::clock_t start = std::clock();
+	rsac_decrypt_internal(priv, c_int3, m_int);
+	printTime(start);
+	start = std::clock();
+	MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
+	printTime(start);
+	*m = (char*)mpz_export(NULL, m_len, 1, 1, 1, 0, m_int);
+	mpz_clears(m_int, c_int, c_int3, NULL);
+}
+
+int test_rsac_string_encrypt_decrypt4() {
 	char m[] = "stop slacking off.";
 	size_t c_len, m_len = strlen(m), result_len;
 	char **c = (char**)calloc(sizeof(char *), 1);
@@ -227,12 +248,9 @@ int test_rsac_string_encrypt_decrypt4() {
 		fail++;
 	}
 
-	printTime(start);
-	start = std::clock();
-
 	rsac_encryptV4(pub, m, m_len, c, &c_len);
 
-	rsac_decrypt(priv, *c, c_len, m_result, &result_len);
+	rsac_decryptV4(priv, *c, c_len, m_result, &result_len);
 	if (strlen(*m_result) != m_len || strncmp(m, *m_result, m_len) != 0) {
 		printf("FAIL: rsac_string_encrypt_decrypt message did not match after encryption and decryption.\n");
 		printf("expected '%s' but got '%s'\n", m, *m_result);
@@ -247,7 +265,6 @@ int test_rsac_string_encrypt_decrypt4() {
 		printf("PASS: rsac_string_encrypt_decrypt\n");
 	}
 
-	printTime(start);
 	return fail;
 }
 
