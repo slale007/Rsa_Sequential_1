@@ -7,6 +7,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rsa_Sequential_1", "Rsa_Seq
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "lib_mpir_gc", "mpir-3.0.0\build.vc15\lib_mpir_gc\lib_mpir_gc.vcxproj", "{4A742B65-9836-4F46-8310-728F046A31C1}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Rsa_Cuda_1", "Rsa_Cuda_1\Rsa_Cuda_1.vcxproj", "{9E8BE45B-3B03-459B-A08B-950C3387D51C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -55,6 +57,20 @@ Global
 		{4A742B65-9836-4F46-8310-728F046A31C1}.Release|x64.Build.0 = Release|x64
 		{4A742B65-9836-4F46-8310-728F046A31C1}.Release|x86.ActiveCfg = Release|Win32
 		{4A742B65-9836-4F46-8310-728F046A31C1}.Release|x86.Build.0 = Release|Win32
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Debug|x64.ActiveCfg = Debug|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Debug|x64.Build.0 = Debug|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Debug|x86.ActiveCfg = Debug|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Debug|x64.ActiveCfg = Debug|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Debug|x64.Build.0 = Debug|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Debug|x86.ActiveCfg = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Debug|x86.Build.0 = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Release|x64.ActiveCfg = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Release|x64.Build.0 = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Release|x86.ActiveCfg = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.DLL-Import Release|x86.Build.0 = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Release|x64.ActiveCfg = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Release|x64.Build.0 = Release|x64
+		{9E8BE45B-3B03-459B-A08B-950C3387D51C}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

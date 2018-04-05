@@ -170,6 +170,9 @@
     <ProjectReference Include="..\mpir-3.0.0\build.vc15\lib_mpir_gc\lib_mpir_gc.vcxproj">
       <Project>{4a742b65-9836-4f46-8310-728f046a31c1}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\Rsa_Cuda_1\Rsa_Cuda_1.vcxproj">
+      <Project>{9e8be45b-3b03-459b-a08b-950c3387d51c}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
