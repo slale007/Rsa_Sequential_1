@@ -15,7 +15,7 @@ __global__ void addKernel(unsigned long long int *c, const unsigned long long in
     c[i] = a[i] + b[i];
 }
 
-int main()
+int main33()
 {
     const int arraySize = 5;
     const unsigned long long int a[arraySize] = { 0x1111222233334444, 2, 3, 4, 5 };

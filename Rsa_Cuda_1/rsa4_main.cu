@@ -2,16 +2,17 @@
 // My implementation of Montgomery //
 /////////////////////////////////////
 
+#include "..\Rsa_Sequential_1\stdafx.h"
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctime>
 #include <string.h>
 
-#include "stdafx.h"
-#include "rsa1.h"
-#include "timeutil.h"
-#include "customFunctions.h"
+#include "..\Rsa_Sequential_1\rsa1.h"
+#include "..\Rsa_Sequential_1\timeutil.h"
+#include "..\Rsa_Sequential_1\customFunctions.h"
+#include "cudaMpir.h"
 #define BASE 64
 
 using namespace std;
@@ -41,6 +42,8 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_init(tmp4);
 	mpz_t u;
 	mpz_init(u);
+	mpz_t u2;
+	mpz_init(u2);
 	mpz_t slowU;
 	mpz_init(slowU);
 
@@ -75,6 +78,14 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	start = clock();
 
     mpz_tdiv_q_2exp(u, tmp4, index);
+	RightShift2(u2, tmp4, index/64);
+
+	if (mpz_cmp(u, u2) != 0) {
+		cout << "--- Fatal Error" << endl;
+	}
+	else {
+		cout << "--- All Right" << endl;
+	}
 
 
 	globalTime7 += clock() - start;
@@ -109,15 +120,8 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_init(RsquareMod);
 	mpz_add_ui(RR, RR, 1);
 	int indexpom0 = 0;
-	for (int i = 63; i >= 0; i--) {
-		if (modul->_mp_d[modul->_mp_size - 1] & (((unsigned long long int)1) << i)) {
-			indexpom0 = i;
-			break;
-		}
-	}
-	int index0 = 64 * modul->_mp_size - 64 + indexpom0;
 
-	mpz_mul_2exp(RR, RR, index0 + 1);
+	mpz_mul_2exp(RR, RR, modul->_mp_size * 64);
 	mpz_mul_2exp(Rsquare, RR, 1);
 	mpz_mod(RsquareMod, Rsquare, modul);
 	mpz_mod(RMod, RR, modul);
@@ -152,7 +156,7 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_mul(xline2pom, xxx, RR);
 	mpz_mod(xline, xline2pom, modul);
 
-	 // MontgomeryModularMultiplicationV4(xline, xxx, RsquareMod, modul, mprim, RR);
+	// MontgomeryModularMultiplicationV4(xline, xxx, RsquareMod, modul, mprim, RR);
 
 	if (mpz_cmp(xline, xline2) != 0) {
 		// cout << endl << "Fatal error02" << endl;
@@ -169,15 +173,7 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	}
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
-	int indexRR = 0;
-	for (int i = 63; i >= 0; i--) {
-		if (RR->_mp_d[RR->_mp_size - 1] & (((unsigned long long int)1) << i)) {
-			indexRR = i;
-			break;
-		}
-	}
-
-	indexRR = 64 * RR->_mp_size - 64 + indexRR;
+	int indexRR = 64 * RR->_mp_size - 64;
 
 	for (int i = index; i >= 0; i--) {
 		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR, indexRR);
@@ -234,11 +230,11 @@ void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, si
 		c_int, c_len, /* MS word first */ 1, /* bytes per word */ 1,
 		/* big-endian */ 1, /* skip bits */ 0, c);
 	std::clock_t start = std::clock();
-	MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
+	// MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
 	cout << "Montgomery realization: ";
 	printTime(start);
 	start = std::clock();
-	rsac_decrypt_internal(priv, c_int, m_int2);
+	rsac_decrypt_internal(priv, c_int, m_int);
 	cout << "mpir realization: ";
 	printTime(start);
 	*m = (char*)mpz_export(NULL, m_len, 1, 1, 1, 0, m_int);
