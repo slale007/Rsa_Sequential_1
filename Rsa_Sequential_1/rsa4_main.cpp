@@ -16,8 +16,18 @@
 
 using namespace std;
 
+clock_t globalTime0;
+clock_t globalTime1;
+clock_t globalTime2;
+clock_t globalTime3;
+clock_t globalTime4;
+clock_t globalTime5;
+clock_t globalTime6;
+clock_t globalTime7;
+clock_t globalTime8;
+
 // This one is correct!
-void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t modul, mpz_t mprim, mpz_t R)
+void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t modul, mpz_t mprim, mpz_t R, int index)
 {
 	mpz_t t;
 	mpz_init(t);
@@ -34,33 +44,48 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_t slowU;
 	mpz_init(slowU);
 
-
-	int index = 0;
-	for (int i = 63; i >= 0; i--) {
-		if (R->_mp_d[R->_mp_size - 1] & (((unsigned long long int)1) << i)) {
-			index = i;
-			break;
-		}
-	}
-
-	index = 64 * R->_mp_size - 64 + index;
+	clock_t start = clock();
 
 	mpz_mul(t, xxx, yyy);
+
+	globalTime0 += clock() - start;
+	start = clock();
+
 	mpz_mul(tmp1, t, mprim);
-	mpz_mod(tmp2, tmp1, R);
+
+	globalTime1 += clock() - start;
+	start = clock();
+
+	// mpz_mod(tmp2, tmp1, R);
+	mpz_tdiv_q_2exp(tmp2, tmp1, index);
+
+	globalTime2 += clock() - start;
+	start = clock();
+
+	mpz_mul_2exp(tmp2, tmp2, index);
+
+	globalTime3 += clock() - start;
+	start = clock();
+
+	mpz_sub(tmp2, tmp1, tmp2);
+
+	globalTime4 += clock() - start;
+	start = clock();
+
 	mpz_mul(tmp3, tmp2, modul);
+
+	globalTime5 += clock() - start;
+	start = clock();
+
 	mpz_add(tmp4, t, tmp3);
 
-
+	globalTime6 += clock() - start;
+	start = clock();
 
 	mpz_tdiv_q_2exp(u, tmp4, index);
 
-	/*mpz_div(slowU, tmp4, R);
-	if (mpz_cmp(u, slowU) != 0) {
-		cout<<endl << "Fatal error" << endl;
-	}*/
-
-	// all above is good
+	globalTime7 += clock() - start;
+	start = clock();
 
 	// step 3.
 	if (mpz_cmp(u, modul) >= 0)
@@ -70,6 +95,8 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	else {
 		mpz_add_ui(res, u, 0); // ok
 	}
+
+	globalTime8 += clock() - start;
 }
 
 void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
@@ -119,21 +146,9 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_init(min1);
 	mpz_sub(min1, tempNull, onne);
 	mpz_powm(mprim, modul, min1, RR);
-    /* mpz_invert(mprim2, modul, RR);
-
-	if (mpz_cmp(mprim, mprim2) != 0) {
-		cout << "Fatal error0" << endl;
-	}*/
 
 	mpz_sub(mprim, RR, mprim);
-	/*mpz_sub(mprim2, tempNull, mprim2);
-	mpz_mod(mprim2, mprim2, RR);
 
-	if (mpz_cmp(mprim, mprim2) != 0) {
-	    cout << endl<<"Fatal error01" << endl;
-	}*/
-
-	// all above stuff is checked
 
 	mpz_t xline;
 	mpz_init(xline);
@@ -161,25 +176,36 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	}
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
-	std::clock_t start = std::clock();
-	for (int i = index; i >= 0; i--) {
-		/*mpz_t AA;
-		mpz_t AAAA;
-		mpz_init(AA);
-		mpz_init(AAAA);
-		mpz_add(AA, tempNull, res);
-		mpz_add(AAAA, tempNull, res);*/
-
-
-
-		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR);
-		if (exponent->_mp_d[i / 64] & (((unsigned long long int)1) << (i % 64))) {
-			// mpz_add(AA, tempNull, res);
-			MontgomeryModularMultiplicationV4(res, res, xline, modul, mprim, RR);
+	int indexRR = 0;
+	for (int i = 63; i >= 0; i--) {
+		if (RR->_mp_d[RR->_mp_size - 1] & (((unsigned long long int)1) << i)) {
+			indexRR = i;
+			break;
 		}
-		// mpz_clears(AA, AAAA, NULL);
 	}
-	printTime(start);
+
+	indexRR = 64 * RR->_mp_size - 64 + indexRR;
+
+	clock_t start = clock();
+
+
+	for (int i = index; i >= 0; i--) {
+		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR, indexRR);
+		if (exponent->_mp_d[i / 64] & (((unsigned long long int)1) << (i % 64))) {
+			MontgomeryModularMultiplicationV4(res, res, xline, modul, mprim, RR, indexRR);
+		}
+	}
+
+	cout << "Inner Time 0 : " << (clock() - start) / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 0: " << globalTime0 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 1: " << globalTime1 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 2: " << globalTime2 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 3: " << globalTime3 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 4: " << globalTime4 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 5: " << globalTime5 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 6: " << globalTime6 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 7: " << globalTime7 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
+	cout << "Global time 8: " << globalTime8 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 
 	// all above stuff is checked
 	mpz_t one;
@@ -189,7 +215,7 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_add(AAA, tempNull, res);
 
 	mpz_add_ui(one, one, 1);
-	MontgomeryModularMultiplicationV4(res, AAA, one, modul, mprim, RR);
+	MontgomeryModularMultiplicationV4(res, AAA, one, modul, mprim, RR, indexRR);
 }
 
 void rsac_encryptV4(public_key *pub, const char *message, size_t m_len, char **cryptedMessage, size_t *c_len)
@@ -213,23 +239,25 @@ void rsac_encryptV4(public_key *pub, const char *message, size_t m_len, char **c
 
 void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, size_t *m_len)
 {
-	mpz_t m_int, c_int, c_int3;
-	mpz_inits(m_int, c_int, c_int3, NULL);
+	mpz_t m_int, c_int, m_int2;
+	mpz_inits(m_int, c_int, m_int2, NULL);
 	mpz_import(
 		c_int, c_len, /* MS word first */ 1, /* bytes per word */ 1,
 		/* big-endian */ 1, /* skip bits */ 0, c);
 	std::clock_t start = std::clock();
-	rsac_decrypt_internal(priv, c_int3, m_int);
+	MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
+	cout << "Montgomery realization: ";
 	printTime(start);
 	start = std::clock();
-	MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
+	rsac_decrypt_internal(priv, c_int, m_int2);
+	cout << "mpir realization: ";
 	printTime(start);
 	*m = (char*)mpz_export(NULL, m_len, 1, 1, 1, 0, m_int);
-	mpz_clears(m_int, c_int, c_int3, NULL);
+	mpz_clears(m_int, c_int, m_int2, NULL);
 }
 
 int test_rsac_string_encrypt_decrypt4() {
-	char m[] = "stop slacking off.";
+	char m[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
 	size_t c_len, m_len = strlen(m), result_len;
 	char **c = (char**)calloc(sizeof(char *), 1);
 	char **m_result = (char**)calloc(sizeof(char *), 1);

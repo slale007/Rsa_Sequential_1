@@ -10,7 +10,7 @@
 
 using namespace std;
 
-#define PQ_PRIME_SIZE_BITS 1024
+#define PQ_PRIME_SIZE_BITS 2048
 
 gmp_randstate_t state;
 
