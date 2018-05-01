@@ -4,16 +4,23 @@
 #include "..\mpir-3.0.0\lib\x64\Debug\mpir.h"
 
 typedef struct {
-	mpz_t n, e;
+	mpz_t n; /* Modulus */
+	mpz_t e; /* Public Exponent */
 } public_key;
 
 typedef struct {
-	mpz_t n, d;
+	mpz_t n; /* Modulus */
+	mpz_t d; /* Private Exponent */
+	mpz_t e; /* Public Exponent */
+	mpz_t p; /* Starting prime p */
+	mpz_t q; /* Starting prime q */
 } private_key;
 
 // Returns 0 if successful.
 // out: pub, priv
 int extern rsac_keygen(public_key *pub, private_key *priv);
+
+int extern generate_keys(public_key* publicKey, private_key* privateKey);
 
 // in: pub, m, m_len, out: c, c_len
 void extern rsac_encrypt(public_key *pub, const char *m, size_t m_len, char **c, size_t *c_len);

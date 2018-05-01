@@ -10,7 +10,12 @@
 
 using namespace std;
 
-#define PQ_PRIME_SIZE_BITS 1024
+#define PQ_PRIME_SIZE_BITS 2048
+
+
+#define MODULUS_SIZE 8192                   /* This is the number of bits we want in the modulus */
+#define BLOCK_SIZE (MODULUS_SIZE/8)         /* This is the size of a block that gets en/decrypted at once */
+#define BUFFER_SIZE ((MODULUS_SIZE/8) / 2)  /* This is the number of bytes in n and p */
 
 gmp_randstate_t state;
 
@@ -79,6 +84,86 @@ int rsac_keygen(public_key *pub, private_key *priv)
 	return 0;
 }
 
+
+int generate_keys(public_key* publicKey, private_key* privateKey)
+{
+	char buf[BUFFER_SIZE];
+	int i;
+	mpz_t phi; mpz_init(phi);
+	mpz_t tmp1; mpz_init(tmp1);
+	mpz_t tmp2; mpz_init(tmp2);
+
+	srand(time(NULL));
+
+	/* Insetead of selecting e st. gcd(phi, e) = 1; 1 < e < phi, lets choose e
+	* first then pick p,q st. gcd(e, p-1) = gcd(e, q-1) = 1 */
+	// We'll set e globally.  I've seen suggestions to use primes like 3, 17 or 
+	// 65537, as they make coming calculations faster.  Lets use 65537.
+	mpz_set_ui(privateKey->e, 65537);
+
+	/* Select p and q */
+	/* Start with p */
+	// Set the bits of tmp randomly
+	for (i = 0; i < BUFFER_SIZE; i++)
+		buf[i] = rand() % 0xFF;
+	// Set the top two bits to 1 to ensure int(tmp) is relatively large
+	buf[0] |= 0xC0;
+	// Set the bottom bit to 1 to ensure int(tmp) is odd (better for finding primes)
+	buf[BUFFER_SIZE - 1] |= 0x01;
+	// Interpret this char buffer as an int
+	mpz_import(tmp1, BUFFER_SIZE, 1, sizeof(buf[0]), 0, 0, buf);
+	// Pick the next prime starting from that random number
+	mpz_nextprime(privateKey->p, tmp1);
+	/* Make sure this is a good choice*/
+	mpz_mod(tmp2, privateKey->p, privateKey->e);        /* If p mod e == 1, gcd(phi, e) != 1 */
+	while (!mpz_cmp_ui(tmp2, 1))
+	{
+		mpz_nextprime(privateKey->p, privateKey->p);    /* so choose the next prime */
+		mpz_mod(tmp2, privateKey->p, privateKey->e);
+	}
+
+	/* Now select q */
+	do {
+		for (i = 0; i < BUFFER_SIZE; i++)
+			buf[i] = rand() % 0xFF;
+		// Set the top two bits to 1 to ensure int(tmp) is relatively large
+		buf[0] |= 0xC0;
+		// Set the bottom bit to 1 to ensure int(tmp) is odd
+		buf[BUFFER_SIZE - 1] |= 0x01;
+		// Interpret this char buffer as an int
+		mpz_import(tmp1, (BUFFER_SIZE), 1, sizeof(buf[0]), 0, 0, buf);
+		// Pick the next prime starting from that random number
+		mpz_nextprime(privateKey->q, tmp1);
+		mpz_mod(tmp2, privateKey->q, privateKey->e);
+		while (!mpz_cmp_ui(tmp2, 1))
+		{
+			mpz_nextprime(privateKey->q, privateKey->q);
+			mpz_mod(tmp2, privateKey->q, privateKey->e);
+		}
+	} while (mpz_cmp(privateKey->p, privateKey->q) == 0); /* If we have identical primes (unlikely), try again */
+
+										  /* Calculate n = p x q */
+	mpz_mul(privateKey->n, privateKey->p, privateKey->q);
+
+	/* Compute phi(n) = (p-1)(q-1) */
+	mpz_sub_ui(tmp1, privateKey->p, 1);
+	mpz_sub_ui(tmp2, privateKey->q, 1);
+	mpz_mul(phi, tmp1, tmp2);
+
+	/* Calculate d (multiplicative inverse of e mod phi) */
+	if (mpz_invert(privateKey->d, privateKey->e, phi) == 0)
+	{
+		mpz_gcd(tmp1, privateKey->e, phi);
+		printf("gcd(e, phi) = [%s]\n", mpz_get_str(NULL, 16, tmp1));
+		printf("Invert failed\n");
+	}
+
+	/* Set public key */
+	mpz_set(publicKey->e, privateKey->e);
+	mpz_set(publicKey->n, privateKey->n);
+
+	return 0;
+}
 
 
 #pragma endregion
