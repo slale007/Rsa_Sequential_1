@@ -10,9 +10,12 @@
 
 using namespace std;
 
-#define PQ_PRIME_SIZE_BITS 2048
+// This is used for RSA keygen 1024 2048  4096
+#define PQ_PRIME_SIZE_BITS 1024
 
+#define NUMBER_OF_ROUNDS_IN_KEY_GENERATION 2
 
+// This will be used later, in keygen 2
 #define MODULUS_SIZE 8192                   /* This is the number of bits we want in the modulus */
 #define BLOCK_SIZE (MODULUS_SIZE/8)         /* This is the size of a block that gets en/decrypted at once */
 #define BUFFER_SIZE ((MODULUS_SIZE/8) / 2)  /* This is the number of bytes in n and p */
@@ -20,6 +23,17 @@ using namespace std;
 gmp_randstate_t state;
 
 #pragma region RSA_Keygen
+
+void rsac_public_exponent(mpz_t e)
+{
+	mpz_set_ui(e, 65537);
+}
+
+// let result = a^-1 mod b
+void rsac_inverse_modulo(mpz_t a, mpz_t b, mpz_t result)
+{
+	mpz_invert(result, a, b);
+}
 
 void rsac_init_randstate()
 {
@@ -33,7 +47,7 @@ void rsac_random_prime(unsigned int bit_size, mpz_t x)
 	mpz_nextprime(x, x);
 }
 
-int rsac_keygen_internal(mpz_t n, mpz_t e, mpz_t d, mpz_t p, mpz_t q)
+int rsaKeyGenerationInternal(mpz_t n, mpz_t e, mpz_t d, mpz_t p, mpz_t q)
 {
 	// t1 and t2 are temp variables
 	mpz_t phi, t1, t2;
@@ -43,7 +57,7 @@ int rsac_keygen_internal(mpz_t n, mpz_t e, mpz_t d, mpz_t p, mpz_t q)
 	rsac_public_exponent(e);
 
 	int rounds;
-	for (rounds = 0; mpz_cmp_ui(d, 0) == 0 && rounds < 100; rounds++) {
+	for (rounds = 0; mpz_cmp_ui(d, 0) == 0 && rounds < NUMBER_OF_ROUNDS_IN_KEY_GENERATION; rounds++) {
 		rsac_init_randstate();
 		rsac_random_prime(PQ_PRIME_SIZE_BITS, p);
 		rsac_random_prime(PQ_PRIME_SIZE_BITS, q);
@@ -59,33 +73,36 @@ int rsac_keygen_internal(mpz_t n, mpz_t e, mpz_t d, mpz_t p, mpz_t q)
 
 		rsac_inverse_modulo(e, phi, d);
 	}
+
 	mpz_clears(t1, t2, phi, NULL);
 
-	if (rounds == 100) {
+	if (rounds == NUMBER_OF_ROUNDS_IN_KEY_GENERATION) {
 		return -1;
 	}
 	return 0;
 }
 
-int rsac_keygen(public_key *pub, private_key *priv)
+void rsaKeyGeneration(public_key *publicKey, private_key *privateKey)
 {
 	mpz_t n, e, d, p, q;
 	mpz_inits(n, e, d, p, q, NULL);
 
-	int success = rsac_keygen_internal(n, e, d, p, q);
-	if (success != 0) return success;
+	int success = rsaKeyGenerationInternal(n, e, d, p, q);
 
-	mpz_init_set(pub->n, n);
-	mpz_init_set(pub->e, e);
-	mpz_init_set(priv->n, n);
-	mpz_init_set(priv->d, d);
+	if (success != 0) {
+		printf("FAIL: rsaKeyGeneration returned %d, expected 0\n", success);
+		return;
+	}
 
+	mpz_init_set(publicKey->n, n);
+	mpz_init_set(publicKey->e, e);
+	mpz_init_set(privateKey->n, n);
+	mpz_init_set(privateKey->d, d);
 	mpz_clears(n, e, d, p, q, NULL);
-	return 0;
 }
 
 
-int generate_keys(public_key* publicKey, private_key* privateKey)
+void rsaKeyGeneration2(public_key *publicKey, private_key *privateKey)
 {
 	char buf[BUFFER_SIZE];
 	int i;
@@ -161,25 +178,19 @@ int generate_keys(public_key* publicKey, private_key* privateKey)
 	/* Set public key */
 	mpz_set(publicKey->e, privateKey->e);
 	mpz_set(publicKey->n, privateKey->n);
-
-	return 0;
 }
 
 
 #pragma endregion
 
+
+
+
+
+
+
+
 #pragma region RSA_Algorithm
-
-void rsac_public_exponent(mpz_t e)
-{
-	mpz_set_ui(e, 65537);
-}
-
-// let x = a^-1 mod b
-void rsac_inverse_modulo(mpz_t a, mpz_t b, mpz_t x)
-{
-	mpz_invert(x, a, b);
-}
 
 void rsac_encrypt_internal(public_key *pub, mpz_t m, mpz_t c)
 {

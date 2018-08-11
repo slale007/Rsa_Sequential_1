@@ -1,4 +1,4 @@
-/////////////////////////////////////
+﻿/////////////////////////////////////
 // My implementation of Montgomery //
 /////////////////////////////////////
 
@@ -29,6 +29,10 @@ clock_t globalTime6;
 clock_t globalTime7;
 clock_t globalTime8;
 clock_t start;
+
+// Note: need to test with big strings
+char oldMessageForTesting[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
+char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece";
 
 // This one is correct!
 void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t modul, mpz_t mprim, mpz_t R, int index)
@@ -120,7 +124,7 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	globalTime8 += clock() - start;
 }
 
-void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
+void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
 {
 	mpz_t tempNull;
 	mpz_init(tempNull);
@@ -138,20 +142,15 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_add_ui(RR, RR, 1);
 	int indexpom0 = 0;
 
+	// Calculate R: R = b ^ messageLength
 	mpz_mul_2exp(RR, RR, modul->_mp_size * 64);
+
 	mpz_mul_2exp(Rsquare, RR, 1);
 	mpz_mod(RsquareMod, Rsquare, modul);
 	mpz_mod(RMod, RR, modul);
 
-	// above is correct
-
 	mpz_t mprim;
 	mpz_init(mprim);
-	mpz_t mprim2;
-	mpz_init(mprim2);
-	mpz_t base;
-	mpz_init(base);
-	mpz_set_ui(base, 2);
 
 	mpz_t min1;
 	mpz_t onne;
@@ -173,13 +172,6 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	mpz_mul(xline2pom, xxx, RR);
 	mpz_mod(xline, xline2pom, modul);
 
-	// MontgomeryModularMultiplicationV4(xline, xxx, RsquareMod, modul, mprim, RR);
-
-	if (mpz_cmp(xline, xline2) != 0) {
-		// cout << endl << "Fatal error02" << endl;
-	}
-
-	mpz_mod(res, RR, modul);
 
 	int indexpom = 0;
 	for (int i = 63; i >= 0; i--) {
@@ -191,6 +183,20 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
 	int indexRR = 64 * RR->_mp_size - 64;
+
+
+
+	MontgomeryModularMultiplicationV4(xline2, xxx, RsquareMod, modul, mprim, RR, indexRR);
+
+	if (mpz_cmp(xline, xline2) != 0) {
+		cout << endl << "Not same" << endl;
+	}
+
+	mpz_mod(res, RR, modul);
+
+
+
+
 
 	for (int i = index; i >= 0; i--) {
 		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR, indexRR);
@@ -220,30 +226,35 @@ void MontgomeryModularEponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_
 	MontgomeryModularMultiplicationV4(res, AAA, one, modul, mprim, RR, indexRR);
 }
 
-void rsac_encryptV4(public_key *pub, const char *message, size_t m_len, char **cryptedMessage, size_t *c_len)
+void rsaEncryption(public_key *publicKey, const char *message, size_t messageLength, char **cryptedMessage, size_t *ciphertextLength)
 {
-	mpz_t m_int, c_int, c_int2, c_int3;
-	mpz_inits(m_int, c_int, c_int2, c_int3, NULL);
-	mpz_import(m_int, m_len, /* MS word first */ 1, /* bytes per word */ 1, /* big-endian */ 1, /* skip bits */ 0, message);
+	mpz_t originalMessage, ciphertext, ciphertext2, c_int3;
+	mpz_inits(originalMessage, ciphertext, ciphertext2, c_int3, NULL);
+	mpz_import(originalMessage,
+		messageLength, 
+		/* MS word first */ 1,
+		/* bytes per word */ 1,
+		/* big-endian */ 1,
+		/* skip bits */ 0,
+		message);
 
 	clock_t startTime = std::clock();
-	MontgomeryModularEponentiationV4(/*cripted*/c_int,/* message */ m_int, /*exponent*/ pub->e, /*modul*/ pub->n);
-	cout << "Montgomery realization: ";
-	printTime(startTime);
-
+	MontgomeryModularExponentiationV4(
+		/* cripted*/ciphertext,
+		/* message */ originalMessage,
+		/* exponent*/ publicKey->e,
+		/* modul*/ publicKey->n);
+	cout << "Montgomery realization: "; printTime(startTime);
 
 	startTime = std::clock();
-	rsac_encrypt_internal(pub, m_int, c_int2);
-	cout << "Mpir realization: ";
-	printTime(startTime);
+	rsac_encrypt_internal(publicKey, originalMessage, ciphertext2);
+	cout << "Mpir realization: "; printTime(startTime);
 
 
-
-	*cryptedMessage = (char*)mpz_export(NULL, c_len, 1, 1, 1, 0, c_int);
-	// mpz_clears(m_int, c_int, NULL);
+	*cryptedMessage = (char*)mpz_export(NULL, ciphertextLength, 1, 1, 1, 0, ciphertext);
 }
 
-void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, size_t *m_len)
+void rsaDecryption(private_key *priv, const char *c, size_t c_len, char **m, size_t *m_len)
 {
 	mpz_t m_int, c_int, m_int2;
 	mpz_inits(m_int, c_int, m_int2, NULL);
@@ -253,7 +264,7 @@ void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, si
 
 
 	clock_t startTime = std::clock();
-	MontgomeryModularEponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
+	MontgomeryModularExponentiationV4(/*cripted*/m_int,/* message */ c_int, /*exponent*/ priv->d, /*modul*/ priv->n);
 	cout << "Montgomery realization: ";
 	printTime(startTime);
 
@@ -268,62 +279,49 @@ void rsac_decryptV4(private_key *priv, const char *c, size_t c_len, char **m, si
 	mpz_clears(m_int, c_int, m_int2, NULL);
 }
 
-int test_rsac_string_encrypt_decrypt4() {
-	char message[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
-	size_t c_len, m_len = strlen(message), result_len;
+void testRsaSequentialMontgomery() {
+	char* message = messageForTesting;
+	size_t ciphertextLength, messageLength = strlen(message), result_len;
 	char **c = (char**)calloc(sizeof(char *), 1);
 	char **m_result = (char**)calloc(sizeof(char *), 1);
 	int fail = 0;
-	public_key* pub = (public_key*)calloc(sizeof(public_key), 1);
-	private_key* priv = (private_key*)calloc(sizeof(private_key), 1);
-
-	if (pub == NULL || priv == NULL) {
-		printf("FAIL: rsac_string_encrypt_decrypt could not allocate public or private key struct\n");
-		return 1;
-	}
+	public_key* publicKey = (public_key*)calloc(sizeof(public_key), 1);
+	private_key* privateKey = (private_key*)calloc(sizeof(private_key), 1);
 
 	printf("\n_______________________Key generation_______________________\n\n");
 
-	// Initialize public key
-	mpz_init(pub->n);
-	mpz_init(pub->e);
-	// Initialize private key
-	mpz_init(priv->n);
-	mpz_init(priv->e);
-	mpz_init(priv->d);
-	mpz_init(priv->p);
-	mpz_init(priv->q);
+	// Initialize public and private key
+	mpz_init(publicKey->n);
+	mpz_init(publicKey->e);
+	mpz_init(privateKey->n);
+	mpz_init(privateKey->e);
+	mpz_init(privateKey->d);
+	mpz_init(privateKey->p);
+	mpz_init(privateKey->q);
 
 	clock_t keygenTime = std::clock();
-	int res = rsac_keygen(pub, priv);
-	// int res = generate_keys(pub, priv);
-
-	if (res != 0) {
-		printf("FAIL: rsac_string_encrypt_decrypt rsac_keygen returned %d, expected 0\n", res);
-		fail++;
-	}
+	rsaKeyGeneration(publicKey, privateKey);
 	printTime(keygenTime);
 
 	printf("\n_________________________Encription_________________________\n\n");
 
-	rsac_encryptV4(pub, message, m_len, c, &c_len);
+	rsaEncryption(publicKey, message, messageLength, c, &ciphertextLength);
 
 	printf("\n_________________________Decription_________________________\n\n");
 
-	rsac_decryptV4(priv, *c, c_len, m_result, &result_len);
+	rsaDecryption(privateKey, *c, ciphertextLength, m_result, &result_len);
 
 	printf("\n________________________Final Result________________________\n\n");
 	printf("expected:\n'%s' \ngot:\n'%s'\n", message, *m_result);
 
-	free(pub);
-	free(priv);
+	free(publicKey);
+	free(privateKey);
 	free(*c);
 	free(*m_result);
+
 	if (fail == 0) {
 		printf("\nTest PASSED\n");
 	}
-
-	return fail;
 }
 
 void printGPUProperties() {
@@ -351,20 +349,25 @@ void printGPUProperties() {
 	cout << endl;
 }
 
-int main() {
-	int failures = 0;
-	printGPUProperties();
-	printf(" CHAR_BIT je: %d\n", CHAR_BIT);
+void printSomeDebuggingStuff() {
+	printf("CHAR_BIT je: %d\n", CHAR_BIT);
 	printf("Velicina char je: %d\n", sizeof(char));
 	printf("Velicina unsigned char je: %d\n", sizeof(unsigned char));
 	printf("Velicina unsigned short je: %d\n", sizeof(unsigned short));
 	printf("Velicina unsigned int je: %d\n", sizeof(unsigned int));
 	printf("Velicina mp_limb_t je: %d\n", sizeof(mp_limb_t));
+	printf("Velicina size_t je: %d\n", sizeof(size_t));
 	printf("Velicina unsigned long int je: %d\n", sizeof(unsigned long int));
+	printf("Velicina unsigned long long je: %d\n", sizeof(unsigned long long));
 	printf("Velicina unsigned long long int je: %d\n", sizeof(unsigned long long int));
+}
 
-	failures += test_rsac_string_encrypt_decrypt4();
+int main() {
 
-	printf("%d failures\n", failures);
-	return failures > 0;
+	printGPUProperties();
+	printSomeDebuggingStuff();
+
+	testRsaSequentialMontgomery();
+
+	return 0;
 }

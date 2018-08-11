@@ -6,11 +6,19 @@
 
 using namespace std;
 
+// GPU CODE
+
+
 __global__ void addKernel(unsigned long long int *c, const unsigned long long int *a, const unsigned long long int *b)
 {
 	int i = threadIdx.x;
 	c[i] = a[i] + b[i];
 }
+
+
+
+
+// CPU Code
 
 // Helper function for using CUDA to add vectors in parallel.
 cudaError_t addWithCuda(unsigned long long int *c, const unsigned long long int *a, const unsigned long long int *b, unsigned int size)

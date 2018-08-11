@@ -78,10 +78,9 @@ int rsac_keygen(public_key *pub, private_key *priv)
 	mpz_clears(n, e, d, p, q, NULL);
 	return 0;
 }
-
-
-
 #pragma endregion
+
+
 
 #pragma region RSA_Algorithm
 
