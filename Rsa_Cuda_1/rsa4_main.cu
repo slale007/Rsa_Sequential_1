@@ -357,6 +357,8 @@ int main() {
 	printf(" CHAR_BIT je: %d\n", CHAR_BIT);
 	printf("Velicina char je: %d\n", sizeof(char));
 	printf("Velicina unsigned char je: %d\n", sizeof(unsigned char));
+	printf("Velicina unsigned short je: %d\n", sizeof(unsigned short));
+	printf("Velicina unsigned int je: %d\n", sizeof(unsigned int));
 	printf("Velicina mp_limb_t je: %d\n", sizeof(mp_limb_t));
 	printf("Velicina unsigned long int je: %d\n", sizeof(unsigned long int));
 	printf("Velicina unsigned long long int je: %d\n", sizeof(unsigned long long int));
