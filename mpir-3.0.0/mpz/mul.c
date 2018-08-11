@@ -91,7 +91,7 @@ mpz_mul (mpz_ptr w, mpz_srcptr u, mpz_srcptr v)
            mpn_sqr_basecase(wp, PTR(u), usize);
         else
 #endif
-           mpn_mul_basecase(wp, PTR(u), usize, PTR(v), vsize);
+        mpn_mul_basecase(wp, PTR(u), usize, PTR(v), vsize);
      } else if (usize > vsize) 
         mpn_mul_basecase(wp, PTR(u), usize, PTR(v), vsize);
      else 

@@ -38,6 +38,9 @@
     <ClInclude Include="timeutil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="mulSeqBasic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -50,6 +53,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="customFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="mulSeqBasic.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

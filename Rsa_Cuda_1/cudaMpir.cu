@@ -102,14 +102,6 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	shared_First[idx] = first[idx];
 	shared_Second[idx] = second[idx];
 
-	/*for (int i = threadIdx.x; i < lengthFirst; i += blockDim.x) {
-		shared_First[i] = first[i];
-	}
-
-	for (int i = threadIdx.x; i < lengthSecond; i += blockDim.x) {
-		shared_Second[i] = second[i];
-	}*/
-
 	__syncthreads();
 
 	if (idx < lengthFirst) {
@@ -139,6 +131,7 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 		result[idx] = tmp;
 	}
 }
+
 
 __global__ void cuda_CarryUpdate(LONGINT* longResult, int lengthLongResult) {
 
