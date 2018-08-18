@@ -14,8 +14,15 @@
 #include "..\Rsa_Cuda_1\customFunctions.h"
 #include "cudaMpir.h"
 #include "cuda_runtime.h"
+#include <cuda_runtime_api.h>
 #include "device_launch_parameters.h"
-#define BASE 64
+#ifndef __CUDACC__ 
+#define __CUDACC__
+#endif
+#include <cuda.h>
+#include <device_functions.h>
+
+#define LONGINT int
 
 using namespace std;
 
@@ -28,11 +35,305 @@ clock_t globalTime5;
 clock_t globalTime6;
 clock_t globalTime7;
 clock_t globalTime8;
+clock_t globalTime9;
 clock_t start;
 
 // Note: need to test with big strings
 char oldMessageForTesting[] = "Stop slacking off.Stop slacking off.Stop slacking off.Stop slacking off.";
 char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece";
+
+
+
+
+
+__global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsigned char* second, int lengthFirst, int lengthSecond) {
+
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	__shared__ unsigned char shared_First[512];
+	__shared__ unsigned char shared_Second[512];
+
+	for (int i = threadIdx.x; i < lengthFirst; i += blockDim.x) {
+		shared_First[i] = first[i];
+	}
+
+	for (int i = threadIdx.x; i < lengthSecond; i += blockDim.x) {
+		shared_Second[i] = second[i];
+	}
+
+	__syncthreads();
+
+	if (idx < lengthFirst) {
+		int m = 0;
+		int n = idx;
+		int tmp = 0;
+
+		while (n >= 0 && m < lengthSecond) {
+			tmp += shared_Second[m] * shared_First[n];
+			m++;
+			n--;
+		}
+
+		result[idx] = tmp;
+	}
+	else if (idx < lengthFirst + lengthSecond - 1) {
+		int n = lengthFirst - 1;
+		int m = idx - n;
+		int tmp = 0;
+
+		while (m < lengthSecond && n >= 0) {
+			tmp += shared_Second[m] * shared_First[n];
+			m++;
+			n--;
+		}
+
+		result[idx] = tmp;
+	}
+}
+
+__global__ void cuda_CarryUpdate(LONGINT* longResult, int* lengthLongResult) {
+
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx == 0) {
+		int len = *lengthLongResult;
+		int carry = 0;
+		int tmp = 0;
+		int i;
+		for (i = 0; i < len; i++) {
+			tmp = longResult[i] + carry;
+			carry = tmp >> 8;
+			longResult[i] = tmp & 0xff;
+		}
+
+		if (carry != 0) {
+			longResult[i] = carry;
+			*lengthLongResult = i + 1;
+		}
+	}
+}
+
+// Is this tested?   
+//
+////
+void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
+	cudaError_t cudaStatus;
+	int length1 = first->_mp_size * 8;
+	int length2 = second->_mp_size * 8;
+
+	mpz_init(result);
+	result->_mp_size = (length1 + length2);
+	result->_mp_alloc = result->_mp_size;
+	result->_mp_d = (unsigned long long int *)malloc(result->_mp_size * sizeof(unsigned long long int));
+
+	unsigned char* dev_first;
+	unsigned char* dev_second;
+	LONGINT* dev_result;
+
+	cudaStatus = cudaMalloc((void**)&dev_result, (length1 + length2) * sizeof(LONGINT));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed-1!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMalloc((void**)&dev_first, first->_mp_size * sizeof(unsigned char));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed0!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMalloc((void**)&dev_second, second->_mp_size * sizeof(unsigned char));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed1!");
+		goto Error;
+	}
+
+	// Copy input vectors from host memory to GPU buffers.
+	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, first->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy first failed!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, second->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy second failed!");
+		goto Error;
+	}
+
+
+	int numberOfThreads = length1 + length2;
+
+	// Launch a kernel on the GPU with one thread for each element.
+	cuda_Multiplication <<< 1, numberOfThreads >>>(dev_result, dev_first, dev_second, length1, length2);
+
+
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "Multiplication launch failed123: %s\n", cudaGetErrorString(cudaStatus));
+		goto Error;
+	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "2cudaDeviceSynchronize returned error code %d after launching cuda_RightShiftsBlocks!\n", cudaStatus);
+		goto Error;
+	}
+
+	// carry update on cuda
+
+	/*int *midLength;
+	int realMidLength = length1 + length2;
+
+
+	cudaStatus = cudaMalloc((void**)&midLength, sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+	fprintf(stderr, "cudaMalloc failed0!");
+	goto Error;
+	}
+
+	cudaStatus = cudaMemcpy(midLength, &realMidLength, sizeof(int), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+	fprintf(stderr, "cudaMemcpy second failed!");
+	goto Error;
+	}
+
+	cuda_CarryUpdate <<<1, 1 >>> (dev_result, midLength);
+
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+	fprintf(stderr, "Multiplication launch failed1234: %s\n", cudaGetErrorString(cudaStatus));
+	goto Error;
+	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+	fprintf(stderr, "23cudaDeviceSynchronize returned error code %d after launching cuda_RightShiftsBlocks!\n", cudaStatus);
+	goto Error;
+	}*/
+
+	// END carry update on cuda 
+
+
+
+
+	// Copy output vector from GPU buffer to host memory.
+	cudaStatus = cudaMemcpy(result->_mp_d, dev_result, (length1 + length2) * sizeof(LONGINT), cudaMemcpyDeviceToHost);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "2cudaMemcpy failed!\n");
+		goto Error;
+	}
+
+	int len = length1 + length2 - 1;
+	unsigned long long int carry = 0;
+	unsigned long long int tmp = 0;
+	int i;
+	for (i = 0; i < len; i++) {
+		tmp = result->_mp_d[i] + carry;
+		carry = tmp >> 8;
+		result->_mp_d[i] = tmp & 0xff;
+	}
+
+	if (carry != 0) {
+		result->_mp_d[i] = carry;
+		len++;
+	}
+
+	result->_mp_d[0] |= result->_mp_d[1] << 8;
+	result->_mp_d[0] |= result->_mp_d[2] << 2 * 8;
+	result->_mp_d[0] |= result->_mp_d[3] << 3 * 8;
+	result->_mp_d[0] |= result->_mp_d[4] << 4 * 8;
+	result->_mp_d[0] |= result->_mp_d[5] << 5 * 8;
+	result->_mp_d[0] |= result->_mp_d[6] << 6 * 8;
+	result->_mp_d[0] |= result->_mp_d[7] << 7 * 8;
+
+	for (int k = 1; k < len / 8; k++) {
+		result->_mp_d[k] = 0;
+		result->_mp_d[k] |= result->_mp_d[8 * k];
+		result->_mp_d[k] |= result->_mp_d[8 * k + 1] << 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 2] << 2 * 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 3] << 3 * 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 4] << 4 * 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 5] << 5 * 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 6] << 6 * 8;
+		result->_mp_d[k] |= result->_mp_d[8 * k + 7] << 7 * 8;
+	}
+
+	result->_mp_size = (length1 + length2) / 8;
+	result->_mp_alloc = (length1 + length2) / 8;
+
+Error:
+	cudaFree(dev_first);
+	cudaFree(dev_second);
+	cudaFree(dev_result);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // This one is correct!
 void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t modul, mpz_t mprim, mpz_t R, int index)
@@ -51,66 +352,28 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_init(tmp4);
 	mpz_t u;
 	mpz_init(u);
-	mpz_t u2;
-	mpz_init(u2);
 	mpz_t slowU;
 	mpz_init(slowU);
 
-    start = clock();
-
 	mpz_mul(t, xxx, yyy);
-	//Multiplication(t2, xxx, yyy);
+
+	MultiplicationInCuda(t2, xxx, yyy);
 
 	if (mpz_cmp(t, t2) != 0) {
-		/*cout << std::hex << "Mul--- Fatal Error" << endl;
-		/*cout << "Good value: "<<endl;
-		for (int i = 0; i < t->_mp_size; i++) {
-			cout << t->_mp_d[i] << endl;
-		}
-		cout <<  "Bad value: " << endl;
-		for (int i = 0; i < t2->_mp_size; i++) {
-			cout << t2->_mp_d[i] << endl;
-		}*/
+		cout << endl << "Nooooooooooooooooooooooooooooot same" << endl;
 	}
-
-	globalTime0 += clock() - start;
-	start = clock();
 
 	mpz_mul(tmp1, t, mprim);
 
-	globalTime1 += clock() - start;
-	start = clock();
-
-	// mpz_mod(tmp2, tmp1, R);
 	mpz_tdiv_q_2exp(tmp2, tmp1, index);
 	mpz_mul_2exp(tmp2, tmp2, index);
 	mpz_sub(tmp2, tmp1, tmp2);
 
-	globalTime4 += clock() - start;
-	start = clock();
-
 	mpz_mul(tmp3, tmp2, modul);
-
-	globalTime5 += clock() - start;
-	start = clock();
 
 	mpz_add(tmp4, t, tmp3);
 
-	globalTime6 += clock() - start;
-	start = clock();
-
     mpz_tdiv_q_2exp(u, tmp4, index);
-	// RightShiftBlocks(u, tmp4, index/64);
-
-	if (mpz_cmp(u, u2) != 0) {
-		// cout << "Mod--- Fatal Error" << endl;
-	}
-	else {
-		// cout << "Mod--- All Right" << endl;
-	}
-
-	globalTime7 += clock() - start;
-	start = clock();
 
 	// step 3.
 	if (mpz_cmp(u, modul) >= 0)
@@ -120,8 +383,6 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	else {
 		mpz_add_ui(res, u, 0); // ok
 	}
-
-	globalTime8 += clock() - start;
 }
 
 void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
@@ -186,17 +447,13 @@ void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz
 
 
 
-	MontgomeryModularMultiplicationV4(xline2, xxx, RsquareMod, modul, mprim, RR, indexRR);
+	/*MontgomeryModularMultiplicationV4(xline2, xxx, RsquareMod, modul, mprim, RR, indexRR);
 
 	if (mpz_cmp(xline, xline2) != 0) {
-		cout << endl << "Not same" << endl;
-	}
+		cout << endl << "Nooooooooooooooooooooooooooooot same" << endl;
+	}*/
 
 	mpz_mod(res, RR, modul);
-
-
-
-
 
 	for (int i = index; i >= 0; i--) {
 		MontgomeryModularMultiplicationV4(res, res, res, modul, mprim, RR, indexRR);
@@ -204,16 +461,6 @@ void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz
 			MontgomeryModularMultiplicationV4(res, res, xline, modul, mprim, RR, indexRR);
 		}
 	}
-
-	cout << "Global time 0: " << globalTime0 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 1: " << globalTime1 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 2: " << globalTime2 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 3: " << globalTime3 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 4: " << globalTime4 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 5: " << globalTime5 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 6: " << globalTime6 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 7: " << globalTime7 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
-	cout << "Global time 8: " << globalTime8 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 
 	// all above stuff is checked
 	mpz_t one;

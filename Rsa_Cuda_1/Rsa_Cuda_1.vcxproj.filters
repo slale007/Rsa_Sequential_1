@@ -4,10 +4,10 @@
     <CudaCompile Include="cudaMpir.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
-    <CudaCompile Include="main.cu">
+    <CudaCompile Include="rsa4_main.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
-    <CudaCompile Include="rsa4_main.cu">
+    <CudaCompile Include="cudaExample.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
   </ItemGroup>

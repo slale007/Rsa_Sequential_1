@@ -10,7 +10,7 @@
 
 using namespace std;
 
-// This is used for RSA keygen 1024 2048  4096
+// This is used for RSA keygen 1024 2048 3072 4096 8192
 #define PQ_PRIME_SIZE_BITS 1024
 
 #define NUMBER_OF_ROUNDS_IN_KEY_GENERATION 2

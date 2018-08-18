@@ -5,10 +5,10 @@
 #include "cudaMpir.h"
 #include "device_launch_parameters.h"
 
-#define LONGINT unsigned long long int
+// #define LONGINT int
 
 using namespace std;
-
+/*
 __global__ void cuda_RightShiftsBlocks(LONGINT* result, LONGINT* inputNumber, int inputNumberLength, int shift) {
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -99,15 +99,20 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	__shared__ unsigned char shared_First[512];
 	__shared__ unsigned char shared_Second[512];
 
-	shared_First[idx] = first[idx];
-	shared_Second[idx] = second[idx];
+	for (int i = threadIdx.x; i < lengthFirst; i += blockDim.x) {
+		shared_First[i] = first[i];
+	}
+
+	for (int i = threadIdx.x; i < lengthSecond; i += blockDim.x) {
+		shared_Second[i] = second[i];
+	}
 
 	__syncthreads();
 
 	if (idx < lengthFirst) {
 		int m = 0;
 		int n = idx;
-		unsigned long long int tmp = 0;
+		int tmp = 0;
 
 		while (n >= 0 && m < lengthSecond) {
 			tmp += shared_Second[m] * shared_First[n];
@@ -120,7 +125,7 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	else if (idx < lengthFirst + lengthSecond - 1) {
 		int n = lengthFirst - 1;
 		int m = idx - n;
-		unsigned long long int tmp = 0;
+		int tmp = 0;
 
 		while (m < lengthSecond && n >= 0) {
 			tmp += shared_Second[m] * shared_First[n];
@@ -132,15 +137,14 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	}
 }
 
-
-__global__ void cuda_CarryUpdate(LONGINT* longResult, int lengthLongResult) {
+__global__ void cuda_CarryUpdate(LONGINT* longResult, int* lengthLongResult) {
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx == 0) {
-		int len = lengthLongResult;
-		unsigned long long int carry = 0;
-		unsigned long long int tmp = 0;
+		int len = *lengthLongResult;
+		int carry = 0;
+		int tmp = 0;
 		int i;
 		for (i = 0; i < len; i++) {
 			tmp = longResult[i] + carry;
@@ -150,12 +154,15 @@ __global__ void cuda_CarryUpdate(LONGINT* longResult, int lengthLongResult) {
 
 		if (carry != 0) {
 			longResult[i] = carry;
+			*lengthLongResult = i + 1;
 		}
 	}
 }
 
-
-void Multiplication(mpz_t result, mpz_t first, mpz_t second) {
+// Is this tested?   
+//
+////
+void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	cudaError_t cudaStatus;
 	int length1 = first->_mp_size * 8;
 	int length2 = second->_mp_size * 8;
@@ -169,34 +176,34 @@ void Multiplication(mpz_t result, mpz_t first, mpz_t second) {
 	unsigned char* dev_second;
 	LONGINT* dev_result;
 
-	cudaStatus = cudaMalloc((void**)&dev_result, (length1 + length2) * sizeof(unsigned long long int));
+	cudaStatus = cudaMalloc((void**)&dev_result, (length1 + length2) * sizeof(LONGINT));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed-1!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_first, first->_mp_size * sizeof(unsigned long long int));
+	cudaStatus = cudaMalloc((void**)&dev_first, first->_mp_size * sizeof(unsigned char));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed0!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_second, second->_mp_size * sizeof(unsigned long long int));
+	cudaStatus = cudaMalloc((void**)&dev_second, second->_mp_size * sizeof(unsigned char));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed1!");
 		goto Error;
 	}
 
 	// Copy input vectors from host memory to GPU buffers.
-	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, first->_mp_size * sizeof(unsigned long long int), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, first->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed2!");
+		fprintf(stderr, "cudaMemcpy first failed!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, second->_mp_size * sizeof(unsigned long long int), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, second->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
-		fprintf(stderr, "cudaMemcpy failed2!");
+		fprintf(stderr, "cudaMemcpy second failed!");
 		goto Error;
 	}
 
@@ -222,14 +229,54 @@ void Multiplication(mpz_t result, mpz_t first, mpz_t second) {
 		goto Error;
 	}
 
+	// carry update on cuda
+
+	/*int *midLength;
+	int realMidLength = length1 + length2;
+
+
+	cudaStatus = cudaMalloc((void**)&midLength, sizeof(int));
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMalloc failed0!");
+		goto Error;
+	}
+
+	cudaStatus = cudaMemcpy(midLength, &realMidLength, sizeof(int), cudaMemcpyHostToDevice);
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "cudaMemcpy second failed!");
+		goto Error;
+	}
+
+	cuda_CarryUpdate <<<1, 1 >>> (dev_result, midLength);
+
+	// Check for any errors launching the kernel
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "Multiplication launch failed1234: %s\n", cudaGetErrorString(cudaStatus));
+		goto Error;
+	}
+
+	// cudaDeviceSynchronize waits for the kernel to finish, and returns
+	// any errors encountered during the launch.
+	cudaStatus = cudaDeviceSynchronize();
+	if (cudaStatus != cudaSuccess) {
+		fprintf(stderr, "23cudaDeviceSynchronize returned error code %d after launching cuda_RightShiftsBlocks!\n", cudaStatus);
+		goto Error;
+	}
+
+	// END carry update on cuda 
+
+
+
+
 	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(result->_mp_d, dev_result, (length1 + length2) * sizeof(unsigned long long int), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(result->_mp_d, dev_result, (length1 + length2) * sizeof(LONGINT), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "2cudaMemcpy failed!\n");
 		goto Error;
 	}
 
-	int len = length1 + length2;
+	int len = length1 + length2 - 1;
 	unsigned long long int carry = 0;
 	unsigned long long int tmp = 0;
 	int i;
@@ -240,7 +287,8 @@ void Multiplication(mpz_t result, mpz_t first, mpz_t second) {
 	}
 
 	if (carry != 0) {
-		result->_mp_d[len] = carry;
+		result->_mp_d[i] = carry;
+		len++;
 	}
 
 	result->_mp_d[0] |= result->_mp_d[1] << 8;
@@ -264,9 +312,10 @@ void Multiplication(mpz_t result, mpz_t first, mpz_t second) {
 	}
 
 	result->_mp_size = (length1 + length2)/8;
+	result->_mp_alloc = (length1 + length2) / 8;
 
 Error:
 	cudaFree(dev_first);
 	cudaFree(dev_second);
 	cudaFree(dev_result);
-}
+}*/
