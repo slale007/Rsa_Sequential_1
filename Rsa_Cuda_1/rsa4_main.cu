@@ -50,8 +50,8 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	__shared__ unsigned char shared_First[512];
-	__shared__ unsigned char shared_Second[512];
+	__shared__ unsigned char shared_First[2048];
+	__shared__ unsigned char shared_Second[2048];
 
 	for (int i = threadIdx.x; i < lengthFirst; i += blockDim.x) {
 		shared_First[i] = first[i];
@@ -126,6 +126,8 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	result->_mp_alloc = result->_mp_size;
 	result->_mp_d = (unsigned long long int *)malloc(result->_mp_size * sizeof(unsigned long long int));
 
+	int *tmpRes = (int *)malloc((length1 + length2) * sizeof(int));
+
 	unsigned char* dev_first;
 	unsigned char* dev_second;
 	LONGINT* dev_result;
@@ -136,26 +138,26 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_first, first->_mp_size * sizeof(unsigned char));
+	cudaStatus = cudaMalloc((void**)&dev_first, length1 * sizeof(unsigned char));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed0!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_second, second->_mp_size * sizeof(unsigned char));
+	cudaStatus = cudaMalloc((void**)&dev_second, length2 * sizeof(unsigned char));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed1!");
 		goto Error;
 	}
 
 	// Copy input vectors from host memory to GPU buffers.
-	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, first->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, length1 * sizeof(unsigned char), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy first failed!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, second->_mp_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, length2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy second failed!");
 		goto Error;
@@ -224,7 +226,7 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 
 
 	// Copy output vector from GPU buffer to host memory.
-	cudaStatus = cudaMemcpy(result->_mp_d, dev_result, (length1 + length2) * sizeof(LONGINT), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(tmpRes, dev_result, (length1 + length2) * sizeof(LONGINT), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "2cudaMemcpy failed!\n");
 		goto Error;
@@ -235,34 +237,35 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	unsigned long long int tmp = 0;
 	int i;
 	for (i = 0; i < len; i++) {
-		tmp = result->_mp_d[i] + carry;
+		tmp = tmpRes[i] + carry;
 		carry = tmp >> 8;
-		result->_mp_d[i] = tmp & 0xff;
+		tmpRes[i] = tmp & 0xff;
 	}
 
 	if (carry != 0) {
-		result->_mp_d[i] = carry;
+		tmpRes[i] = carry;
 		len++;
 	}
 
-	result->_mp_d[0] |= result->_mp_d[1] << 8;
-	result->_mp_d[0] |= result->_mp_d[2] << 2 * 8;
-	result->_mp_d[0] |= result->_mp_d[3] << 3 * 8;
-	result->_mp_d[0] |= result->_mp_d[4] << 4 * 8;
-	result->_mp_d[0] |= result->_mp_d[5] << 5 * 8;
-	result->_mp_d[0] |= result->_mp_d[6] << 6 * 8;
-	result->_mp_d[0] |= result->_mp_d[7] << 7 * 8;
+	result->_mp_d[0] = tmpRes[0];
+	result->_mp_d[0] |= tmpRes[1] << 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[2] << 2 * 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[3] << 3 * 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[4] << 4 * 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[5] << 5 * 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[6] << 6 * 8;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[7] << 7 * 8;
 
-	for (int k = 1; k < len / 8; k++) {
+	for (int k = 1; k < (len+1) / 8; k++) {
 		result->_mp_d[k] = 0;
-		result->_mp_d[k] |= result->_mp_d[8 * k];
-		result->_mp_d[k] |= result->_mp_d[8 * k + 1] << 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 2] << 2 * 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 3] << 3 * 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 4] << 4 * 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 5] << 5 * 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 6] << 6 * 8;
-		result->_mp_d[k] |= result->_mp_d[8 * k + 7] << 7 * 8;
+		result->_mp_d[k] |= tmpRes[8 * k];
+		result->_mp_d[k] |= tmpRes[8 * k + 1] << 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 2] << 2 * 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 3] << 3 * 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 4] << 4 * 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 5] << 5 * 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 6] << 6 * 8;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 7] << 7 * 8;
 	}
 
 	result->_mp_size = (length1 + length2) / 8;
@@ -355,13 +358,22 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_t slowU;
 	mpz_init(slowU);
 
-	mpz_mul(t, xxx, yyy);
+	// START tmp data
+	/*xxx->_mp_d[0] = 256;
+	xxx->_mp_size = 1;
 
-	MultiplicationInCuda(t2, xxx, yyy);
+	yyy->_mp_d[0] = 256;
+	yyy->_mp_size = 1;
+	*/
+	// END tmp data
 
-	if (mpz_cmp(t, t2) != 0) {
+	//mpz_mul(t, xxx, yyy);
+
+	MultiplicationInCuda(t, xxx, yyy);
+
+	/*if (mpz_cmp(t, t2) != 0) {
 		cout << endl << "Nooooooooooooooooooooooooooooot same" << endl;
-	}
+	}*/
 
 	mpz_mul(tmp1, t, mprim);
 
