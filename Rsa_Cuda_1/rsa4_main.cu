@@ -1,6 +1,12 @@
 ﻿/////////////////////////////////////
 // My implementation of Montgomery //
 /////////////////////////////////////
+// Next TODO:
+// |   |  1. Make montgomery totaly on CUDA:
+// |   |	1. Generalize inputs/outputs for montgomery
+// |   |	2. Make carry update in montgomery on CUDA
+//
+//
 
 #include "..\Rsa_Sequential_1\stdafx.h"
 #include <iostream>
@@ -358,22 +364,9 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_t slowU;
 	mpz_init(slowU);
 
-	// START tmp data
-	/*xxx->_mp_d[0] = 256;
-	xxx->_mp_size = 1;
-
-	yyy->_mp_d[0] = 256;
-	yyy->_mp_size = 1;
-	*/
-	// END tmp data
-
 	//mpz_mul(t, xxx, yyy);
 
 	MultiplicationInCuda(t, xxx, yyy);
-
-	/*if (mpz_cmp(t, t2) != 0) {
-		cout << endl << "Nooooooooooooooooooooooooooooot same" << endl;
-	}*/
 
 	mpz_mul(tmp1, t, mprim);
 
@@ -482,7 +475,7 @@ void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz
 	mpz_add(AAA, tempNull, res);
 
 	mpz_add_ui(one, one, 1);
-	MontgomeryModularMultiplicationV4(res, AAA, one, modul, mprim, RR, indexRR);
+	MontgomeryModularMultiplicationV4(res, res, one, modul, mprim, RR, indexRR);
 }
 
 void rsaEncryption(public_key *publicKey, const char *message, size_t messageLength, char **cryptedMessage, size_t *ciphertextLength)
