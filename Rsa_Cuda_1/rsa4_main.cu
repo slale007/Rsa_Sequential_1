@@ -28,7 +28,7 @@
 #include <cuda.h>
 #include <device_functions.h>
 
-#define LONGINT int
+#define LONGINT unsigned long long int
 
 using namespace std;
 
@@ -56,7 +56,7 @@ char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio 
 
 
 
-__global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsigned char* second, int lengthFirst, int lengthSecond) {
+__global__ void cuda_Multiplication(LONGINT* result, unsigned short* first, unsigned short* second, int lengthFirst, int lengthSecond) {
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -77,10 +77,10 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	if (idx < lengthFirst) {
 		int m = 0;
 		int n = idx;
-		int tmp = 0;
+		LONGINT tmp = 0;
 
 		while (n >= 0 && m < lengthSecond) {
-			tmp += second[m] * first[n];
+			tmp += (LONGINT)second[m] * first[n];
 			m++;
 			n--;
 		}
@@ -90,10 +90,10 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 	else if (idx < lengthFirst + lengthSecond - 1) {
 		int n = lengthFirst - 1;
 		int m = idx - n;
-		int tmp = 0;
+		LONGINT tmp = 0;
 
 		while (m < lengthSecond && n >= 0) {
-			tmp += second[m] * first[n];
+			tmp += (LONGINT)second[m] * first[n];
 			m++;
 			n--;
 		}
@@ -108,13 +108,13 @@ __global__ void cuda_CarryUpdate(LONGINT* longResult, int* lengthLongResult) {
 
 	if (idx == 0) {
 		int len = *lengthLongResult;
-		int carry = 0;
-		int tmp = 0;
+		LONGINT carry = 0;
+		LONGINT tmp = 0;
 		int i;
 		for (i = 0; i < len; i++) {
 			tmp = longResult[i] + carry;
-			carry = tmp >> 8;
-			longResult[i] = tmp & 0xff;
+			carry = tmp >> 16;
+			longResult[i] = tmp & 0xffff;
 		}
 
 		if (carry != 0) {
@@ -129,18 +129,18 @@ __global__ void cuda_CarryUpdate(LONGINT* longResult, int* lengthLongResult) {
 ////
 void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	cudaError_t cudaStatus;
-	int length1 = first->_mp_size * 8;
-	int length2 = second->_mp_size * 8;
+	int length1 = first->_mp_size * 4;
+	int length2 = second->_mp_size * 4;
 
 	mpz_init(result);
 	result->_mp_size = (length1 + length2);
 	result->_mp_alloc = result->_mp_size;
 	result->_mp_d = (unsigned long long int *)malloc(result->_mp_size * sizeof(unsigned long long int));
 
-	int *tmpRes = (int *)malloc((length1 + length2) * sizeof(int));
+	LONGINT *tmpRes = (LONGINT *)malloc((length1 + length2) * sizeof(LONGINT));
 
-	unsigned char* dev_first;
-	unsigned char* dev_second;
+	unsigned short* dev_first;
+	unsigned short* dev_second;
 	LONGINT* dev_result;
 
 	cudaStatus = cudaMalloc((void**)&dev_result, (length1 + length2) * sizeof(LONGINT));
@@ -149,26 +149,26 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_first, length1 * sizeof(unsigned char));
+	cudaStatus = cudaMalloc((void**)&dev_first, length1 * sizeof(unsigned short));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed0!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMalloc((void**)&dev_second, length2 * sizeof(unsigned char));
+	cudaStatus = cudaMalloc((void**)&dev_second, length2 * sizeof(unsigned short));
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMalloc failed1!");
 		goto Error;
 	}
 
 	// Copy input vectors from host memory to GPU buffers.
-	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, length1 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_first, first->_mp_d, length1 * sizeof(unsigned short), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy first failed!");
 		goto Error;
 	}
 
-	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, length2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+	cudaStatus = cudaMemcpy(dev_second, second->_mp_d, length2 * sizeof(unsigned short), cudaMemcpyHostToDevice);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "cudaMemcpy second failed!");
 		goto Error;
@@ -202,7 +202,7 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	// carry update on cuda
 
 	int *midLength;
-	int realMidLength = length1 + length2 - 1;
+	int realMidLength = length1 + length2;
 
 
 	cudaStatus = cudaMalloc((void**)&midLength, sizeof(int));
@@ -249,28 +249,20 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 
 
 	result->_mp_d[0] = tmpRes[0];
-	result->_mp_d[0] |= tmpRes[1] << 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[2] << 2 * 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[3] << 3 * 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[4] << 4 * 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[5] << 5 * 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[6] << 6 * 8;
-	result->_mp_d[0] |= (unsigned long long int)tmpRes[7] << 7 * 8;
+	result->_mp_d[0] |= tmpRes[1] << 16;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[2] << 2 * 16;
+	result->_mp_d[0] |= (unsigned long long int)tmpRes[3] << 3 * 16;
 
-	for (int k = 1; k < (realMidLength +1) / 8; k++) {
+	for (int k = 1; k < (realMidLength + 1) / 4; k++) {
 		result->_mp_d[k] = 0;
-		result->_mp_d[k] |= tmpRes[8 * k];
-		result->_mp_d[k] |= tmpRes[8 * k + 1] << 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 2] << 2 * 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 3] << 3 * 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 4] << 4 * 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 5] << 5 * 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 6] << 6 * 8;
-		result->_mp_d[k] |= (unsigned long long int)tmpRes[8 * k + 7] << 7 * 8;
+		result->_mp_d[k] |= tmpRes[4 * k];
+		result->_mp_d[k] |= tmpRes[4 * k + 1] << 16;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[4 * k + 2] << 2 * 16;
+		result->_mp_d[k] |= (unsigned long long int)tmpRes[4 * k + 3] << 3 * 16;
 	}
 
-	result->_mp_size = (length1 + length2) / 8;
-	result->_mp_alloc = (length1 + length2) / 8;
+	result->_mp_size = realMidLength / 4;
+	result->_mp_alloc = realMidLength / 4;
 
 Error:
 	cudaFree(dev_first);
@@ -359,7 +351,7 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 	mpz_t slowU;
 	mpz_init(slowU);
 
-	//mpz_mul(t, xxx, yyy);
+	mpz_mul(t2, xxx, yyy);
 
 	MultiplicationInCuda(t, xxx, yyy);
 
