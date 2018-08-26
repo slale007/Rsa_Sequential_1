@@ -3,8 +3,8 @@
 /////////////////////////////////////
 // Next TODO:
 // |   |  1. Make montgomery totaly on CUDA:
-// |   |	1. Generalize inputs/outputs for montgomery
-// |   |	2. Make carry update in montgomery on CUDA
+// | + |	1. Generalize inputs/outputs for montgomery
+// | + |	2. Make carry update in montgomery on CUDA
 //
 //
 
@@ -32,7 +32,7 @@
 
 using namespace std;
 
-clock_t globalTime0;
+clock_t globalTime0 = 0;
 clock_t globalTime1;
 clock_t globalTime2;
 clock_t globalTime3;
@@ -52,12 +52,17 @@ char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio 
 
 
 
+
+
+
+
 __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsigned char* second, int lengthFirst, int lengthSecond) {
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	__shared__ unsigned char shared_First[2048];
-	__shared__ unsigned char shared_Second[2048];
+	// consider using this again later
+	/*__shared__ unsigned char shared_First[18192];
+	__shared__ unsigned char shared_Second[18192];
 
 	for (int i = threadIdx.x; i < lengthFirst; i += blockDim.x) {
 		shared_First[i] = first[i];
@@ -67,7 +72,7 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 		shared_Second[i] = second[i];
 	}
 
-	__syncthreads();
+	__syncthreads();*/
 
 	if (idx < lengthFirst) {
 		int m = 0;
@@ -75,7 +80,7 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 		int tmp = 0;
 
 		while (n >= 0 && m < lengthSecond) {
-			tmp += shared_Second[m] * shared_First[n];
+			tmp += second[m] * first[n];
 			m++;
 			n--;
 		}
@@ -88,7 +93,7 @@ __global__ void cuda_Multiplication(LONGINT* result, unsigned char* first, unsig
 		int tmp = 0;
 
 		while (m < lengthSecond && n >= 0) {
-			tmp += shared_Second[m] * shared_First[n];
+			tmp += second[m] * first[n];
 			m++;
 			n--;
 		}
@@ -173,6 +178,7 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	int numberOfThreads = length1 + length2;
 
 	// Launch a kernel on the GPU with one thread for each element.
+	clock_t xxx = std::clock();
 	cuda_Multiplication <<< 1, numberOfThreads >>>(dev_result, dev_first, dev_second, length1, length2);
 
 
@@ -191,10 +197,12 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 		goto Error;
 	}
 
+	globalTime0 +=(clock() - xxx);
+
 	// carry update on cuda
 
-	/*int *midLength;
-	int realMidLength = length1 + length2;
+	int *midLength;
+	int realMidLength = length1 + length2 - 1;
 
 
 	cudaStatus = cudaMalloc((void**)&midLength, sizeof(int));
@@ -224,7 +232,7 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	if (cudaStatus != cudaSuccess) {
 	fprintf(stderr, "23cudaDeviceSynchronize returned error code %d after launching cuda_RightShiftsBlocks!\n", cudaStatus);
 	goto Error;
-	}*/
+	}
 
 	// END carry update on cuda 
 
@@ -233,25 +241,12 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 
 	// Copy output vector from GPU buffer to host memory.
 	cudaStatus = cudaMemcpy(tmpRes, dev_result, (length1 + length2) * sizeof(LONGINT), cudaMemcpyDeviceToHost);
+	cudaStatus = cudaMemcpy(&realMidLength, midLength, sizeof(int), cudaMemcpyDeviceToHost);
 	if (cudaStatus != cudaSuccess) {
 		fprintf(stderr, "2cudaMemcpy failed!\n");
 		goto Error;
 	}
 
-	int len = length1 + length2 - 1;
-	unsigned long long int carry = 0;
-	unsigned long long int tmp = 0;
-	int i;
-	for (i = 0; i < len; i++) {
-		tmp = tmpRes[i] + carry;
-		carry = tmp >> 8;
-		tmpRes[i] = tmp & 0xff;
-	}
-
-	if (carry != 0) {
-		tmpRes[i] = carry;
-		len++;
-	}
 
 	result->_mp_d[0] = tmpRes[0];
 	result->_mp_d[0] |= tmpRes[1] << 8;
@@ -262,7 +257,7 @@ void MultiplicationInCuda(mpz_t result, mpz_t first, mpz_t second) {
 	result->_mp_d[0] |= (unsigned long long int)tmpRes[6] << 6 * 8;
 	result->_mp_d[0] |= (unsigned long long int)tmpRes[7] << 7 * 8;
 
-	for (int k = 1; k < (len+1) / 8; k++) {
+	for (int k = 1; k < (realMidLength +1) / 8; k++) {
 		result->_mp_d[k] = 0;
 		result->_mp_d[k] |= tmpRes[8 * k];
 		result->_mp_d[k] |= tmpRes[8 * k + 1] << 8;
@@ -370,14 +365,31 @@ void MontgomeryModularMultiplicationV4(mpz_t res, mpz_t xxx, mpz_t yyy, mpz_t mo
 
 	mpz_mul(tmp1, t, mprim);
 
-	mpz_tdiv_q_2exp(tmp2, tmp1, index);
+	/*mpz_tdiv_q_2exp(tmp2, tmp1, index);
 	mpz_mul_2exp(tmp2, tmp2, index);
-	mpz_sub(tmp2, tmp1, tmp2);
+	mpz_sub(tmp2, tmp1, tmp2);*/
+
+	mpz_t indexX;
+	mpz_init(indexX);
+	mpz_t onne;
+	mpz_init(onne);
+	mpz_add_ui(onne, onne, 1);
+
+	mpz_mul_2exp(indexX, onne, index);
+
+	mpz_mod(tmp2, tmp1, indexX);
+
+
+
+
+
+
 
 	mpz_mul(tmp3, tmp2, modul);
 
 	mpz_add(tmp4, t, tmp3);
 
+	// Shift right
     mpz_tdiv_q_2exp(u, tmp4, index);
 
 	// step 3.
@@ -476,6 +488,8 @@ void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz
 
 	mpz_add_ui(one, one, 1);
 	MontgomeryModularMultiplicationV4(res, res, one, modul, mprim, RR, indexRR);
+
+	cout << "Time on GPU: " << globalTime0 / (double)(CLOCKS_PER_SEC / 1000) << " ms" << endl;
 }
 
 void rsaEncryption(public_key *publicKey, const char *message, size_t messageLength, char **cryptedMessage, size_t *ciphertextLength)
