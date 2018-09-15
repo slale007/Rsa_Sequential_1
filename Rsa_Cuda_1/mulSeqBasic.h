@@ -5,4 +5,7 @@
 
 extern void mulSeqBasic(mpz_t results, mpz_t a, mpz_t b);
 
+extern void BarretModularReduction(mpz_t result, mpz_t x, mpz_t modul);
+extern void BarretModularReductionV2(mpz_t result, mpz_t x, mpz_t modul, mpz_t factor);
+
 #endif
