@@ -72,8 +72,8 @@ void LeftShiftSeqBasic(mpz_t result, mpz_t a, unsigned int shiftCnt) {
 }
 
 void BarretModularReductionV2(mpz_t result, mpz_t xxx, mpz_t modul, mpz_t factor) {
-	mpz_t tmp1, q1, q2, q3, r1, r2, r3;
-	mpz_inits(tmp1, q1, q2, q3, r1, r2, r3, NULL);
+	mpz_t tmp1, q1, q2, q3, r1, r2, r3, r;
+	mpz_inits(tmp1, q1, q2, q3, r1, r2, r3, r, NULL);
 	mpz_t tempNull;
 	mpz_init(tempNull);
 	mpz_add_ui(tempNull, tempNull, 0);
@@ -93,13 +93,33 @@ void BarretModularReductionV2(mpz_t result, mpz_t xxx, mpz_t modul, mpz_t factor
 	RightShiftSeqBasic(q1, XxX, k-1);
 	//mulSeqBasic(q2, q1, factor);
 	mpz_mul(q2, q1, factor);
-	RightShiftSeqBasic(q2, q2, k+1);
-	// mpz_add_ui(q2, q2, 2);
+	RightShiftSeqBasic(q3, q2, k+1);
+	// mpz_add_ui(q3, q2, 2);
 
-	//mulSeqBasic(r2, q2, modul);
-	mpz_mul(r2, q2, modul);
 
-	mpz_sub(result, XxX, r2);
+
+
+	mpz_t twoPower;
+	mpz_init(twoPower);
+	mpz_add_ui(twoPower, twoPower, 1);
+	mpz_mul_2exp(twoPower, twoPower, k+1);
+
+	//mulSeqBasic(r2, q3, modul);
+	mpz_mod(r1, XxX, twoPower);
+	mpz_mul(r2, q3, modul);
+	mpz_mod(r3, r2, twoPower);
+
+	mpz_sub(result, r1, r3);
+
+	mpz_t nula;
+	mpz_init(nula);
+	if (mpz_cmp(result, nula) < 0) {
+		mpz_add(result, result, twoPower);
+	}
+
+	/*mpz_mul(r2, q3, modul);
+
+	mpz_sub(result, XxX, r2);*/
 
 	while (mpz_cmp(result, modul) >= 0)
 	{

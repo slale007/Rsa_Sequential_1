@@ -46,7 +46,7 @@ clock_t globalTime9;
 clock_t start;
 
 // Note: need to test with big strings
-char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece....................................................................................";
+char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece22................................................................................";
 
 
 
@@ -425,10 +425,10 @@ void BarrettExponentiation(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
 	mpz_t tempNull;
 	mpz_t factor;
 	mpz_init(factor);
+	mpz_init(res);
 	mpz_init(tempNull);
 	mpz_add_ui(tempNull, tempNull, 0);
 	int indexpom = 0;
-	int indexpom0 = 0;
 
 	calcualateBarrettFactor(factor, xxx, modul);
 
@@ -441,19 +441,22 @@ void BarrettExponentiation(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
 	for (int i = index; i >= 0; i--) {
-		if (res->_mp_size == 0) {
-			//mulSeqBasic(res, xxx, xxx);
-			mpz_mul(res, xxx, xxx);
-		}
-		else {
-			//mulSeqBasic(res, res, res);
-			mpz_mul(res, res, res);
-		}
+		//mulSeqBasic(res, res, res);
+		mpz_mul(res, res, res);
+		//mpz_mod(res, res, modul);
 		BarretModularReductionV2(res, res, modul, factor);
+		
 		if (exponent->_mp_d[i / 64] & (((unsigned long long int)1) << (i % 64))) {
-			//mulSeqBasic(res, res, xxx);
-			mpz_mul(res, res, xxx);
+
+			if (res->_mp_size == 0) {
+				mpz_add_ui(res, xxx, 0);
+			}
+			else {
+				//mulSeqBasic(res, res, xxx);
+				mpz_mul(res, res, xxx);
+			}
 			BarretModularReductionV2(res, res, modul, factor);
+			//mpz_mod(res, res, modul);
 		}
 	}
 }
@@ -767,6 +770,44 @@ void rsaDecryption(private_key *priv, const char *c, size_t c_len, char **m, siz
 
 
 
+void debuggingHelperEncription(public_key *publicKey, const char *message, size_t messageLength, char **cryptedMessage, size_t *ciphertextLength)
+{
+	mpz_t originalMessage, ciphertext, ciphertext2, ciphertext3, c_int3;
+	mpz_inits(originalMessage, ciphertext, ciphertext2, ciphertext3, c_int3, NULL);
+	mpz_import(originalMessage,
+		messageLength,
+		/* MS word first */ 1,
+		/* bytes per word */ 1,
+		/* big-endian */ 1,
+		/* skip bits */ 0,
+		message);
+
+
+
+	clock_t startTime = std::clock();
+	BarrettExponentiation(
+		/* cripted*/ciphertext,
+		/* message */ originalMessage,
+		/* exponent*/ publicKey->e,
+		/* modul*/ publicKey->n);
+	cout << "Sequential Montgomery realization: "; printTime(startTime);
+
+	startTime = std::clock();
+	MontgomeryModularExponentiationV4(
+		/* cripted*/ciphertext2,
+		/* message */ originalMessage,
+		/* exponent*/ publicKey->e,
+		/* modul*/ publicKey->n);
+	cout << "Sequential Montgomery realization: "; printTime(startTime);
+
+
+	startTime = std::clock();
+	rsac_encrypt_internal(publicKey, originalMessage, ciphertext3);
+	cout << "Mpir realization: "; printTime(startTime);
+
+
+	*cryptedMessage = (char*)mpz_export(NULL, ciphertextLength, 1, 1, 1, 0, ciphertext);
+}
 
 
 
@@ -908,6 +949,32 @@ void rsaDecryptionBarrettSequential(private_key *priv, const char *c, size_t c_l
 
 
 
+
+void debugingHelper(public_key* publicKey, private_key* privateKey) {
+	char* message = messageForTesting;
+	char **c = (char**)calloc(sizeof(char *), 1);
+	char **m_result = (char**)calloc(sizeof(char *), 1);
+	size_t ciphertextLength, messageLength = strlen(message), result_len;
+
+	printf("\n****************************Debugging Helper******************************\n\n");
+	printf("\n_________________________Encription_________________________\n\n");
+
+	debuggingHelperEncription(publicKey, message, messageLength, c, &ciphertextLength);
+
+	printf("\n_________________________Decription_________________________\n\n");
+
+	rsaDecryptionMontgomerySequential(privateKey, *c, ciphertextLength, m_result, &result_len);
+
+	printf("\n________________________Final Result________________________\n\n");
+	printf("expected:\n'%s' \ngot:\n'%s'\n", message, *m_result);
+
+	free(*c);
+	free(*m_result);
+}
+
+
+
+
 void testRsaMontgomerySequential(public_key* publicKey, private_key* privateKey) {
 	char* message = messageForTesting;
 	char **c = (char**)calloc(sizeof(char *), 1);
@@ -1037,9 +1104,9 @@ int main() {
 	rsaKeyGeneration(publicKey, privateKey);
 	printTime(keygenTime);
 
+	debugingHelper(publicKey, privateKey);
 	testRsaMontgomerySequential(publicKey, privateKey);
 	testRsaMpir(publicKey, privateKey);
-
 	testRsaBarrettSequential(publicKey, privateKey);
 
 	return 0;
