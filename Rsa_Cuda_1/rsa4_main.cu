@@ -47,6 +47,7 @@ clock_t start;
 
 // Note: need to test with big strings
 char messageForTesting[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece22................................................................................";
+char messageForTesting2048[] = "Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece22................................................................................Nikola Tesla je umro. Umro je siromasan, ali je bio jedan od najkorisnijih ljudi koji su ikada ziveli. Ono sto je stvorio veliko je i, kako vreme prolazi, postaje jos vece22................................................................................";
 
 
 
@@ -441,8 +442,9 @@ void BarrettExponentiation(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
 	int index = 64 * exponent->_mp_size - 64 + indexpom; // ok
 
 	for (int i = index; i >= 0; i--) {
-		//mulSeqBasic(res, res, res);
-		mpz_mul(res, res, res);
+		if(res->_mp_size != 0)
+		mulSeqBasic(res, res, res);
+		//mpz_mul(res, res, res);
 		//mpz_mod(res, res, modul);
 		BarretModularReductionV2(res, res, modul, factor);
 		
@@ -452,8 +454,8 @@ void BarrettExponentiation(mpz_t res, mpz_t xxx, mpz_t exponent, mpz_t modul)
 				mpz_add_ui(res, xxx, 0);
 			}
 			else {
-				//mulSeqBasic(res, res, xxx);
-				mpz_mul(res, res, xxx);
+				mulSeqBasic(res, res, xxx);
+				//mpz_mul(res, res, xxx);
 			}
 			BarretModularReductionV2(res, res, modul, factor);
 			//mpz_mod(res, res, modul);
@@ -598,8 +600,8 @@ void MontgomeryModularExponentiationV4(mpz_t res, mpz_t xxx, mpz_t exponent, mpz
 	mpz_init(xline2pom);
 	mpz_t xline2;
 	mpz_init(xline2);
-	//mpz_mul(xline2pom, xxx, RR);
-	mulSeqBasic(xline2pom, xxx, RR);
+	mpz_mul(xline2pom, xxx, RR);
+	//mulSeqBasic(xline2pom, xxx, RR);
 	mpz_mod(xline, xline2pom, modul);
 
 
@@ -1059,7 +1061,7 @@ void printGPUProperties() {
 		cout << "  Number of multiprocesors: " << prop.multiProcessorCount << endl;
 		cout << "  Total global memory: " << prop.totalGlobalMem << endl;
 		cout << "  Shared memory per block: " << prop.sharedMemPerBlock << endl;
-		cout << "  Number of registers per block per block: " << prop.regsPerBlock << endl;
+		cout << "  Number of registers per block: " << prop.regsPerBlock << endl;
 		cout << "  Warp size: " << prop.warpSize << endl;
 		cout << "  Max threads per block: " << prop.maxThreadsPerBlock << endl;
 	}
@@ -1079,7 +1081,7 @@ void printSomeDebuggingStuff() {
 	printf("Velicina unsigned long long int je: %d\n", sizeof(unsigned long long int));
 }
 
-int main() {
+int maina() {
 
 	printGPUProperties();
 	printSomeDebuggingStuff();
@@ -1104,7 +1106,7 @@ int main() {
 	rsaKeyGeneration(publicKey, privateKey);
 	printTime(keygenTime);
 
-	debugingHelper(publicKey, privateKey);
+	//debugingHelper(publicKey, privateKey);
 	testRsaMontgomerySequential(publicKey, privateKey);
 	testRsaMpir(publicKey, privateKey);
 	testRsaBarrettSequential(publicKey, privateKey);

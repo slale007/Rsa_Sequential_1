@@ -8,11 +8,6 @@ void mulSeqBasic(mpz_t result, mpz_t first, mpz_t second)
 	int tmpResultLength = (first->_mp_size + second->_mp_size) * 4;
 	unsigned long long * tmpResult = (unsigned long long int *)malloc((1 + tmpResultLength) * sizeof(unsigned long long int));
 
-	mpz_init(result);
-	result->_mp_size = tmpResultLength / 4;
-	result->_mp_alloc = result->_mp_size;
-	result->_mp_d = (unsigned long long int *)malloc(result->_mp_size * sizeof(unsigned long long int));
-
 	for (int i = 0; i < tmpResultLength+1; i++) {
 		tmpResult[i] = 0;
 	}
@@ -38,6 +33,13 @@ void mulSeqBasic(mpz_t result, mpz_t first, mpz_t second)
 		tmpResult[tmpResultLength] = carry;
 		tmpResultLength++;
 	}
+
+
+	mpz_init(result);
+	result->_mp_size = tmpResultLength / 4;
+	result->_mp_alloc = result->_mp_size;
+	result->_mp_d = (unsigned long long int *)malloc(result->_mp_size * sizeof(unsigned long long int));
+
 
 	for (int k = 0; k < (tmpResultLength+3) / 4; k++) {
 		result->_mp_d[k] = 0;
@@ -88,25 +90,22 @@ void BarretModularReductionV2(mpz_t result, mpz_t xxx, mpz_t modul, mpz_t factor
 			break;
 		}
 	}
-	int k = 64 * modul->_mp_size - 64 + indexpom+1; // ok
+	int k = 64 * modul->_mp_size - 64 + indexpom + 1; // ok
 
 	RightShiftSeqBasic(q1, XxX, k-1);
-	//mulSeqBasic(q2, q1, factor);
-	mpz_mul(q2, q1, factor);
+	mulSeqBasic(q2, q1, factor);
+	//mpz_mul(q2, q1, factor);
 	RightShiftSeqBasic(q3, q2, k+1);
 	// mpz_add_ui(q3, q2, 2);
-
-
-
 
 	mpz_t twoPower;
 	mpz_init(twoPower);
 	mpz_add_ui(twoPower, twoPower, 1);
 	mpz_mul_2exp(twoPower, twoPower, k+1);
 
-	//mulSeqBasic(r2, q3, modul);
 	mpz_mod(r1, XxX, twoPower);
-	mpz_mul(r2, q3, modul);
+	mulSeqBasic(r2, q3, modul);
+	//mpz_mul(r2, q3, modul);
 	mpz_mod(r3, r2, twoPower);
 
 	mpz_sub(result, r1, r3);
@@ -116,10 +115,6 @@ void BarretModularReductionV2(mpz_t result, mpz_t xxx, mpz_t modul, mpz_t factor
 	if (mpz_cmp(result, nula) < 0) {
 		mpz_add(result, result, twoPower);
 	}
-
-	/*mpz_mul(r2, q3, modul);
-
-	mpz_sub(result, XxX, r2);*/
 
 	while (mpz_cmp(result, modul) >= 0)
 	{

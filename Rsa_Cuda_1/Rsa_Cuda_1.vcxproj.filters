@@ -10,6 +10,9 @@
     <CudaCompile Include="cudaExample.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="tmp1.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
