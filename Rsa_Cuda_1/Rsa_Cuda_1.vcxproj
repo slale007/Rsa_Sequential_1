@@ -90,6 +90,7 @@ copy "$(CudaToolkitBinDir)\cudart*.dll" "$(OutDir)"</Command>
     <CudaCompile Include="cudaExample.cu" />
     <CudaCompile Include="rsa4_main.cu" />
     <CudaCompile Include="tmp1.cu" />
+    <CudaCompile Include="tmp2.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cudaMpir.h" />

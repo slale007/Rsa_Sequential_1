@@ -11,6 +11,7 @@
 using namespace std;
 
 // This is used for RSA keygen 1024 2048 3072 4096 8192
+// Note: For "2048-key" RSA you need to generate two primes of 1024 bits. "The RSA key size is not the size of private key eksponent. It is number of bits in the public modulus (which is known as N).
 #define PQ_PRIME_SIZE_BITS 1024
 
 #define NUMBER_OF_ROUNDS_IN_KEY_GENERATION 2

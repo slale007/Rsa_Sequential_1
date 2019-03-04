@@ -13,6 +13,9 @@
     <CudaCompile Include="tmp1.cu">
       <Filter>Source Files</Filter>
     </CudaCompile>
+    <CudaCompile Include="tmp2.cu">
+      <Filter>Source Files</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
